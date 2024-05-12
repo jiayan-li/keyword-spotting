@@ -154,11 +154,11 @@ def label_df_mfcc(df_mfcc, df_phoneme):
     Returns:
         None. Modify the df_mfcc dataset and create labels.
     '''
-
+    new_df = df_mfcc.copy()
     import pandas as pd
     # Add a new column for the phoneme labels
-    df_mfcc['phoneme'] = ''
-    # Function to find the phoneme label for each row in df_mfcc
+    new_df['phoneme'] = ''
+    # Function to find the phoneme label for each row in new_df
     def find_phoneme(start, end):
         # I assume there are at most 2 rows where time interval overlaps.
         # Filter df_phoneme to find rows where the time interval overlaps with the mfcc interval
@@ -181,27 +181,34 @@ def label_df_mfcc(df_mfcc, df_phoneme):
         return 'unlabeled'  # Or some other default value if no suitable match is found
 
     # Apply the function to each row in df_mfcc
-    df_mfcc['phoneme'] = df_mfcc.apply(lambda row: find_phoneme(row['start_sample'], row['end_sample']), axis=1)
-
-    def find_ratio(start, end):
+    new_df['phoneme'] = new_df.apply(lambda row: find_phoneme(row['start_sample'], row['end_sample']), axis=1)
+    return new_df
+    '''
+    def find_phoneme_weights(start, end):
         # Filter df_phoneme to find rows where the time interval overlaps with the mfcc interval
         overlaps = df_phoneme[(df_phoneme['start_sample'] <= end) & (df_phoneme['end_sample'] >= start)]
 
-        # If there is any overlap
-        if not overlaps.empty:
-            # Calculate overlap for each phoneme
-            overlaps['overlap_length'] = overlaps.apply(
-                lambda row: min(end, row['end_sample']) - max(start, row['start_sample']), axis=1
-            )
-            total_overlap = overlaps['overlap_length'].sum()
-            
-            # Calculate and return overlap weights normalized to sum to 1
-            if total_overlap > 0:
-                overlaps['weights'] = overlaps['overlap_length'] / total_overlap
-                return overlaps['weights'].tolist()
+        # If there is no overlap
+        if overlaps.empty:
+            print('Error: There is no time-overlapping rows.')
+            return
+
+        # Calculate overlap for each phoneme
+        overlaps['overlap_length'] = overlaps.apply(
+            lambda row: min(end, row['end_sample']) - max(start, row['start_sample']), axis=1
+        )
+        total_overlap = overlaps['overlap_length'].sum()
+        
+        # Calculate and return overlap weights normalized to sum to 1
+        if total_overlap > 0:
+            overlaps['weights'] = overlaps['overlap_length'] / total_overlap
+            # Return a dictionary with phonemes as keys and their weights as values
+            return dict(zip(overlaps['phoneme'], overlaps['weights']))
         
         # Default return if there is no overlap or if total overlap sum is zero
-        return [0]  # Or some other default value if no suitable match is found
+        print('Error: The total overlap sum is zero')
+        return {}  # Returning an empty dictionary if no suitable match is found
 
+    df_mfcc.apply(lambda row: find_phoneme_weights(row['start_sample'], row['end_sample']), axis=1)
 
-
+    '''
