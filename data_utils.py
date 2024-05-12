@@ -137,4 +137,46 @@ def process_audio_file(audio_file_path: str,
     # Construct DataFrame
     mfcc_df = _construct_mfcc_df(mfcc, win_length=win_length, hop_length=hop_length)
 
-    return mfcc_df
+    return mfcc_df 
+
+def label_df_mfcc(df_mfcc, df_phoneme):
+    '''
+    Given two dataframes df_mfcc, df_phoneme, create phoneme labels in df_mfcc by using the labels in df_phoneme.
+    Parameters:
+        df_mfcc: pd.dataframe. Unlabeled mfcc features.
+        df_phoneme: pd.dataframe. Dataset that includes phoneme labels and their start-end times.
+
+    Returns:
+        None. Modify the df_mfcc dataset and create labels.
+    '''
+
+    import pandas as pd
+    # Add a new column for the phoneme labels
+    df_mfcc['phoneme'] = ''
+    # Function to find the phoneme label for each row in df_mfcc
+    def find_phoneme(start, end):
+        # I assume there are at most 2 rows where time interval overlaps.
+        # Filter df_phoneme to find rows where the time interval overlaps with the mfcc interval
+        overlaps = df_phoneme[(df_phoneme['start_sample'] <= end) & (df_phoneme['end_sample'] >= start)]
+        
+        # Check if there is any overlap
+        if not overlaps.empty:
+            phonemes = overlaps['phoneme'].tolist()
+            # Return all unique phonemes preserving their order
+            seen = set()
+            unique_phonemes = []
+            for phoneme in phonemes:
+                if phoneme not in seen:
+                    seen.add(phoneme)
+                    unique_phonemes.append(phoneme)
+            return ', '.join(unique_phonemes)
+        
+        # Default return if there is no overlap
+        print(f'For start {start} and end {end}, there is no time-overlapping row.')
+        return 'unlabeled'  # Or some other default value if no suitable match is found
+
+    # Apply the function to each row in df_mfcc
+    df_mfcc['phoneme'] = df_mfcc.apply(lambda row: find_phoneme(row['start_sample'], row['end_sample']), axis=1)
+
+    
+
