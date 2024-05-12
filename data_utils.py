@@ -1,7 +1,8 @@
 import pandas as pd
 import numpy as np
 import re
-import librosa
+import librosa 
+import config
 
 def _list_to_df(data: list, variable_name: str) -> pd.DataFrame:
     """
@@ -152,7 +153,7 @@ def label_df_mfcc(df_mfcc, df_phoneme):
         df_phoneme: pd.dataframe. Dataset that includes phoneme labels and their start-end times.
 
     Returns:
-        None. Modify the df_mfcc dataset and create labels.
+        new_df_mfcc. Modify the df_mfcc dataset and create labels.
     '''
     new_df = df_mfcc.copy()
     import pandas as pd
@@ -161,7 +162,7 @@ def label_df_mfcc(df_mfcc, df_phoneme):
     # Function to find the phoneme label for each row in new_df
     def find_phoneme(start, end):
         # I assume there are at most 2 rows where time interval overlaps.
-        # Filter df_phoneme to find rows where the time interval overlaps with the mfcc interval
+        # Filter df_phoneme to find rows where the time interval overlaps with the mfcc interval 
         overlaps = df_phoneme[(df_phoneme['start_sample'] <= end) & (df_phoneme['end_sample'] >= start)]
         
         # Check if there is any overlap
@@ -181,9 +182,8 @@ def label_df_mfcc(df_mfcc, df_phoneme):
         return 'unlabeled'  # Or some other default value if no suitable match is found
 
     # Apply the function to each row in df_mfcc
-    new_df['phoneme'] = new_df.apply(lambda row: find_phoneme(row['start_sample'], row['end_sample']), axis=1)
-    return new_df
-    '''
+    new_df['phoneme'] = new_df.apply(lambda row: find_phoneme(row['start_sample'], row['end_sample']), axis=1) 
+    
     def find_phoneme_weights(start, end):
         # Filter df_phoneme to find rows where the time interval overlaps with the mfcc interval
         overlaps = df_phoneme[(df_phoneme['start_sample'] <= end) & (df_phoneme['end_sample'] >= start)]
@@ -209,6 +209,47 @@ def label_df_mfcc(df_mfcc, df_phoneme):
         print('Error: The total overlap sum is zero')
         return {}  # Returning an empty dictionary if no suitable match is found
 
-    df_mfcc.apply(lambda row: find_phoneme_weights(row['start_sample'], row['end_sample']), axis=1)
+    new_df['phoneme_weights'] = new_df.apply(lambda row: find_phoneme_weights(row['start_sample'], row['end_sample']), axis=1)
+    
+    def distribute_weights(weight_dic):
+        # Do not distribute if there is only one label.
+        if len(weight_dic) == 1:
+            return weight_dic
+        
+        # Do not distribute if the only labels are silence h# and background #b. 
+        if set(weight_dic.keys()) == {'h#, #b'}:
+            return weight_dic
+        
+        # Distribute: Divide the probability of each label by 2.
+        # Set the probability of the label that is at the intersection to 0.5. 
+        new_label = []
+        for key, val in weight_dic.items():
+            new_label.append(key)
+            weight_dic[key] /= 2
+        
+        new_label_str = ''.join(new_label)
+        weight_dic[new_label_str] = 0.5
+        return weight_dic
 
-    '''
+    new_df['distributed_weights'] = new_df.apply(lambda row: distribute_weights(row['phoneme_weights']), axis=1) 
+
+    def create_label_vector(weight_dic):
+        # Create label vector that has the same dimension as the number of phoneme classes.
+        num_labels = len(config.phoneme_to_idx)
+        label = np.zeros(num_labels)
+        for key, val in weight_dic.items():
+            if key in config.phoneme_to_idx:
+                idx = config.phoneme_to_idx[key]
+                label[idx] = val
+        return label
+
+    new_df['label'] = new_df.apply(lambda row: create_label_vector(row['distributed_weights']), axis=1) 
+    return new_df
+
+
+
+
+                
+
+
+    
