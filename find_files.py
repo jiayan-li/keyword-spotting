@@ -1,7 +1,11 @@
+"""
+functions to preprocess the files
+"""
+
 import re
 import pandas as pd
 from typing import List, Optional, Tuple, Dict
-from data_utils import load_data
+from utils import load_data
 import glob
 import random
 from joblib import load, dump
@@ -147,20 +151,6 @@ def _shuffle_and_split(input_list: list,
     
     return part1, part2
 
-# def get_prompt_id_paths(prompt_id: List[str],  
-#                         file_type: Optional[str] = 'wav'
-#                         ) -> List[str]: 
-#     """
-#     Get the path of the files with the given prompt_id list
-#     """
-
-#     path_list = []
-#     for id in prompt_id:
-#         path = _get_path_list(id, file_type)
-#         path_list.extend(path)
-
-#     return path_list
-
 def get_all_paths(keyword: str = 'never', 
                   file_type: Optional[str] = 'wav') -> List[str]:
     """
@@ -191,7 +181,7 @@ def get_train_test_paths(keyword: str = 'never',
                          ) -> Dict[str, List[Tuple]]:
     
     """
-    get train test set from the files that contain the keyword
+    main function to get train test set from the files that contain the keyword
 
     return:
         dataset: a dictionary with two keys 'train' and 'test'.

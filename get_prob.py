@@ -1,9 +1,10 @@
-from config import PHONEME_LIST
+"""
+functions to get the prior and transition probability of the phonemes
+"""
 
-from data_utils import (load_data, 
-                        process_audio_file, 
-                        label_df_mfcc,
-                        split_phoneme)
+from config import PHONEME_LIST
+from utils import load_data, split_phoneme
+from mfcc_label import process_audio_file, label_df_mfcc
 from find_files import get_train_test_paths
 from typing import List, Optional, Tuple
 import pandas as pd
