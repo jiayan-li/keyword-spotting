@@ -50,6 +50,36 @@ def get_prior(df_label: pd.DataFrame,
 
     return prior
 
+def count_transition(source_phoneme: Tuple[str], 
+                     target_phoneme: Tuple[str],):
+    """
+    sourece_phoneme = (h#, n)
+    target_phoneme = (h#, n, eh)
+
+    returns {((h#, n), (h#, n)): 1, ((h#, n), (n)): 1, ((n), (n, eh)): 1}
+
+
+    edge case:
+    sourece_phoneme = (h#, n)
+    target_phoneme = (a, n)
+    """
+
+    tran_list = get_transition_list(PHONEME_LIST)
+
+    transition_dict = {}
+    source_id = None
+    target_id = None
+
+    for i, phoneme_tup in enumerate(tran_list):
+        if phoneme_tup[0] == source_phoneme:
+            source_id = i
+        if phoneme_tup[1] == target_phoneme:
+            target_id = i
+
+
+
+
+
 def transition_prob(phoneme: Tuple[str], 
                     next_phoneme: Tuple[str], 
                     df_label: pd.DataFrame,
