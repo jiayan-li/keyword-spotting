@@ -161,7 +161,6 @@ def label_df_mfcc(df_mfcc, df_phoneme):
     new_df['phoneme'] = ''
     # Function to find the phoneme label for each row in new_df
     def find_phoneme(start, end):
-        # I assume there are at most 2 rows where time interval overlaps.
         # Filter df_phoneme to find rows where the time interval overlaps with the mfcc interval 
         overlaps = df_phoneme[(df_phoneme['start_sample'] <= end) & (df_phoneme['end_sample'] >= start)]
         
@@ -200,8 +199,8 @@ def vectorize_label_df_mfcc(df_mfcc, df_phoneme):
 
         # If there is no overlap
         if overlaps.empty:
-            print('Error: There is no time-overlapping rows.')
-            return
+            print(f'Caution: There is no time-overlapping rows for start {start} and end {end}')
+            return {}
 
         # Calculate overlap for each phoneme
         overlaps['overlap_length'] = overlaps.apply(
