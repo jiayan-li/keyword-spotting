@@ -297,3 +297,26 @@ def concat_df(
     concat_df.to_csv(f"processed_data/dnn_{keyword}_{dataset_type}.csv", index=False)
 
     return concat_df
+
+def main(
+    keyword: str = "never",
+    dataset_type: str = ["train", "test"],
+    win_length: int = 400,
+    hop_length: int = 80,
+    rerun: bool = False,
+):
+    """
+    Main function to get the ground truth labels of the MFCC features
+    """
+    if not rerun:
+        try:
+            # Check if the data has been processed
+            for dt in dataset_type:
+                pd.read_csv(f"processed_data/dnn_{keyword}_{dt}.csv")
+            return None
+        except:
+            pass
+    for dt in dataset_type:
+        concat_df(keyword, dt, win_length, hop_length)
+
+    return None
