@@ -3,6 +3,7 @@ import numpy as np
 import re
 import librosa 
 import config
+from get_prob import split_phoneme
 
 def _list_to_df(data: list, variable_name: str) -> pd.DataFrame:
     """
@@ -269,9 +270,27 @@ def vectorize_label_df_mfcc(df_mfcc, df_phoneme):
     return new_df
 
 
+def prepare_data(phn_path: str, 
+                    wav_path: str,
+                    win_length: int = 400,
+                    hop_length: int = 80,) -> pd.DataFrame:
+    """
+    get the labeled mfcc dataframe from one audio file
+    """
 
+    # two paths should be the same except for the file extension
+    # use regular expression 
 
-                
+    if phn_path[:-3] != wav_path[:-3]:
+        raise ValueError('The two paths should be the same except for the file extension.')
 
+    df_phn = load_data(phn_path, 'phoneme')
+    df_phn = split_phoneme(df_phn)
+    df_mfcc = process_audio_file(wav_path, 
+                                 win_length=win_length, 
+                                 hop_length=hop_length)
+    df_label = label_df_mfcc(df_mfcc, df_phn)
+    return df_label, df_phn
+    df_label = vectorize_label_df_mfcc(df_label, df_phn)
 
-    
+    return df_label
