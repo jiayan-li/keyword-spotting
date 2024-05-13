@@ -1,11 +1,11 @@
 import re
 import pandas as pd
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Dict
 from data_utils import load_data
 import glob
 import pickle
 import random
-
+from joblib import load, dump
 
 def _seperate_string(input_string: str) -> list:
     
@@ -69,11 +69,19 @@ def _count_phoneme(phoneme: str, prompt_id: str) -> int:
 def process_all_prompts(
         keyword: str = 'never',
         tartget_phoneme: List[str] = ['n', 'eh', 'v', 'axr'],
-        prompts_file_path: str = 'timit/PROMPTS.txt') -> pd.DataFrame:
+        prompts_file_path: str = 'timit/PROMPTS.txt',
+        rerun: bool = False) -> pd.DataFrame:
     """
     generate a dataframe that contains the following columns:
     prompt, prompt_id, file_count, contain_keyword, n, eh, v, axr
     """
+
+    if not rerun:
+        try:
+            df = pd.read_csv('processed_data/prompts_info.csv')
+            return df
+        except FileNotFoundError:
+            pass
 
     with open(prompts_file_path, 'r') as file:
         prompt = file.readlines()
@@ -140,57 +148,76 @@ def _shuffle_and_split(input_list: list,
     
     return part1, part2
 
-def get_prompt_id_paths(prompt_id: List[str],  
-                        file_type: Optional[str] = 'wav'
-                        ) -> List[str]: 
-    """
-    Get the path of the files with the given prompt_id list
-    """
+# def get_prompt_id_paths(prompt_id: List[str],  
+#                         file_type: Optional[str] = 'wav'
+#                         ) -> List[str]: 
+#     """
+#     Get the path of the files with the given prompt_id list
+#     """
 
-    path_list = []
-    for id in prompt_id:
-        path = _get_path_list(id, file_type)
-        path_list.extend(path)
+#     path_list = []
+#     for id in prompt_id:
+#         path = _get_path_list(id, file_type)
+#         path_list.extend(path)
+
+#     return path_list
+
+def get_all_paths(keyword: str = 'never', 
+                  file_type: Optional[str] = 'wav') -> List[str]:
+    """
+    Get the list of paths of the files of the specified type that contain the keyword
+    """
+    try:
+        if file_type == 'wav':
+            path_list = load(f'processed_data/wav_paths_{keyword}.joblib')
+        elif file_type == 'phn':
+            path_list = load(f'processed_data/phn_paths_{keyword}.joblib')
+        else:
+            raise ValueError("Invalid file_type. Supported types are 'wav' and 'phn'.")
+
+    except:
+        df = process_all_prompts(keyword)  # Assuming this function is defined elsewhere
+        prompt_id = _get_prompt_id_list(df)  # Assuming this function is defined elsewhere
+        path_list = []
+        for prompt_id in prompt_id:
+            path_list.extend(_get_path_list(prompt_id, file_type))  # Assuming this function is defined elsewhere
+
+        dump(path_list, f'processed_data/{file_type}_paths_{keyword}.joblib')
 
     return path_list
 
-def get_all_paths(keyword: str = 'never', 
-                   file_type: Optional[str] = 'wav'
-                         ) -> List[str]: 
-     """
-     Get the list of path of the files of specified type that contain the keyword
-     """
+def get_train_test_paths(keyword: str = 'never',
+                         train_ratio: float = 0.5,
+                         rerun: bool = False
+                         ) -> Dict[str, List[Tuple]]:
+    
+    """
+    get train test set from the files that contain the keyword
 
-     df = process_all_prompts(keyword)
-     prompt_id = _get_prompt_id_list(df)
-     path_list = []
-     for id in prompt_id:
-         path = _get_path_list(id, file_type)
-         path_list.extend(path)
+    return:
+        dataset: a dictionary with two keys 'train' and 'test'.
+    """
 
-def get_train_test_paths(keyword: str = 'never'
-                         ) -> Tuple[List[str], List[str]]:
-    df = process_all_prompts(keyword)
-    prompt_id = _get_prompt_id_list(df)
-    # split the prompt_id into 2 parts randomly
-    train_id, test_id = _shuffle_and_split(prompt_id)
+    if not rerun:
+        try:
+            dataset = load(f'processed_data/train_test_dataset_{keyword}.joblib')
+            return dataset
+        except:
+            pass
 
-    try:
-        with open(f'processed_data/train_test_{keyword}.pkl', 'wb') as f:
-            train_test_data = pickle.load(train_test_data, f)
+    keyword_wav_paths = get_all_paths(keyword, 'wav')
+    keyword_root_paths = [path[:-4] for path in keyword_wav_paths]
 
-    except FileNotFoundError:
-        train_wav = get_prompt_id_paths(train_id, 'wav')
-        test_wav = get_prompt_id_paths(test_id, 'wav')
+    # Split the list of paths into training and testing sets
+    train_root_paths, test_root_paths = _shuffle_and_split(
+                                            keyword_root_paths, 
+                                            train_ratio)
+    
+    dataset = {
+        'train': [(p+'.WAV', p+'.PHN') for p in train_root_paths],
+        'test': [(p+'.WAV', p+'.PHN') for p in test_root_paths]
+        }
 
-        train_phn = get_prompt_id_paths(train_id, 'phn')
-        test_phn = get_prompt_id_paths(test_id, 'phn')
+    dump(dataset, f'processed_data/train_test_dataset_{keyword}.joblib')
 
-        train_test_data = {'train_wav': train_wav, 'test_wav': test_wav,
-                           'train_phn': train_phn, 'test_phn': test_phn}
-        
-        with open(f'processed_data/train_test_{keyword}.pkl', 'wb') as f:
-            pickle.dump(train_test_data, f)
-
-    return train_test_data
-
+    return dataset
