@@ -206,7 +206,7 @@ def vectorize_label_df_mfcc(df_mfcc, df_phoneme):
         # If there is no overlap
         if overlaps.empty:
             print(f'Caution: There is no time-overlapping rows for start {start} and end {end}')
-            return None 
+            return None
 
         # Calculate overlap for each phoneme
         overlaps['overlap_length'] = overlaps.apply(
@@ -230,6 +230,7 @@ def vectorize_label_df_mfcc(df_mfcc, df_phoneme):
         return weight_dic
         
     new_df['state_weights'] = new_df.apply(lambda row: find_state_weights(row['start_sample'], row['end_sample']), axis=1)
+    new_df = new_df[new_df['state_weights'].notna()]
     '''
     def distribute_weights(weight_dic):
         We do not use this function in the new version of state definitions (start, mid, end)
