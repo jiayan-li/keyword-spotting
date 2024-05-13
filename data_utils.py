@@ -159,6 +159,7 @@ def label_df_mfcc(df_mfcc, df_phoneme):
     import pandas as pd
     # Add a new column for the phoneme labels
     new_df['phoneme'] = ''
+    new_df['first_phoneme'] = ''
     # Function to find the phoneme label for each row in new_df
     def find_phoneme(start, end):
         # Filter df_phoneme to find rows where the time interval overlaps with the mfcc interval 
@@ -167,7 +168,7 @@ def label_df_mfcc(df_mfcc, df_phoneme):
         if overlaps.empty:
             # Default return if there is no overlap
             print(f'For start {start} and end {end}, there is no time-overlapping row.')
-            return 'unlabeled'  
+            return 'unlabeled', 'unlabeled'
 
         # Check if there is any overlap
         phonemes = overlaps['phoneme'].tolist()
@@ -178,10 +179,13 @@ def label_df_mfcc(df_mfcc, df_phoneme):
             if phoneme not in seen:
                 seen.add(phoneme) 
                 unique_phonemes.append(phoneme) 
-        return ', '.join(unique_phonemes) 
+        return ', '.join(unique_phonemes), unique_phonemes[0]
 
     # Apply the function to each row in df_mfcc 
-    new_df['phoneme'] = new_df.apply(lambda row: find_phoneme(row['start_sample'], row['end_sample']), axis=1) 
+    # Apply the function to each row in df_mfcc and expand the results into the appropriate columns
+    results = new_df.apply(lambda row: find_phoneme(row['start_sample'], row['end_sample']), axis=1, result_type='expand')
+    new_df['phoneme'] = results[0]
+    new_df['first_phoneme'] = results[1]
     return new_df
 
 def vectorize_label_df_mfcc(df_mfcc, df_phoneme):
@@ -254,7 +258,7 @@ def vectorize_label_df_mfcc(df_mfcc, df_phoneme):
                 idx = config.PHONEME_DICT[key]
                 label[idx] = val
             else:
-                print(f'The state {key} does not exist in the config.')
+                raise ValueError(f'State {key} does not exist in PHONEME_DICT')
         return label
 
     new_df['label'] = new_df.apply(lambda row: create_label_vector(row['state_weights']), axis=1) 
