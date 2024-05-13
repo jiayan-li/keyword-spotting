@@ -1,5 +1,6 @@
-TEST_PHN_PATH = 'timit/data/TRAIN/DR4/MGAG0/SX61.PHN'
-TEST_WAV_PATH = 'timit/data/TRAIN/DR4/MGAG0/SX61.WAV'
+TEST_PHN_PATH = 'timit/data/TRAIN/DR2/FMMH0/SI907.PHN'
+TEST_WAV_PATH = 'timit/data/TRAIN/DR2/FMMH0/SI907.WAV'
+# 'Somehow we old-timers never figured we would ever retire.'
 
 PHONEME_LIST = [
     'b-n', 'm-n', 'e-n',

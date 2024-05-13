@@ -10,6 +10,53 @@ import numpy as np
 from joblib import load 
 
 
+def split_phoneme(df_phoneme: pd.DataFrame) -> pd.DataFrame:
+    """
+    if the phoneme is one of 'n', 'eh', 'v', 'axr', split into three rows
+    with equal gap between the start_sample and end_sample
+    """
+
+    index_to_drop = []  
+    rows_to_add = []
+
+    # iterate through the rows
+    for i, row in df_phoneme.iterrows():
+        if row['phoneme'] in ['n', 'eh', 'v', 'axr']:
+            # later to drop the row
+            index_to_drop.append(i)
+
+            # calculate the gap
+            gap = row['diff_sample']/3
+
+            # split the row into three rows
+            row1 = [row['start_sample'], 
+                    row['start_sample'] + gap, 
+                    row['phoneme'], 
+                    row['diff_sample']]
+            row2 = [row1[1], row1[1] + gap, row1[2], row1[3]]
+            row3 = [row2[1], row['end_sample'], row2[2], row2[3]]
+
+            rows_to_add.append(row1)
+            rows_to_add.append(row2)
+            rows_to_add.append(row3)
+
+        else:
+            pass
+
+    # drop the rows
+    df_phoneme = df_phoneme.drop(index_to_drop)
+
+    # add the rows
+    df_phoneme = pd.concat([df_phoneme, 
+                            pd.DataFrame(rows_to_add, columns=df_phoneme.columns)], 
+                            ignore_index=True)
+
+    # sort by start_sample
+    df_phoneme = df_phoneme.sort_values('start_sample').reset_index(drop=True)
+
+    return df_phoneme
+
+
 def get_label_df(phn_path: str, 
                  wav_path: str,
                  win_length: int = 400,
@@ -50,6 +97,10 @@ def get_prior(df_label: pd.DataFrame,
 
     return prior
 
+# def single_phoneme(phoneme_list = PHONEME_LIST):
+
+#     # flatten
+
 def count_transition(source_phoneme: Tuple[str], 
                      target_phoneme: Tuple[str],):
     """
@@ -64,6 +115,7 @@ def count_transition(source_phoneme: Tuple[str],
     target_phoneme = (a, n)
     """
 
+    
     tran_list = get_transition_list(PHONEME_LIST)
 
     transition_dict = {}
