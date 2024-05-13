@@ -7,7 +7,7 @@ import librosa
 import config
 from find_files import get_train_test_paths
 from utils import load_data, split_phoneme
-
+import pandas as pd
 
 def _load_mfcc(
     file_path: str,
