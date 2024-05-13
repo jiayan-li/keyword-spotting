@@ -2,59 +2,13 @@ from config import PHONEME_LIST
 
 from data_utils import (load_data, 
                         process_audio_file, 
-                        label_df_mfcc)
+                        label_df_mfcc,
+                        split_phoneme)
 from find_files import get_train_test_paths
 from typing import List, Optional, Tuple
 import pandas as pd
 import numpy as np
 from joblib import load 
-
-
-def split_phoneme(df_phoneme: pd.DataFrame) -> pd.DataFrame:
-    """
-    if the phoneme is one of 'n', 'eh', 'v', 'axr', split into three rows
-    with equal gap between the start_sample and end_sample
-    """
-
-    index_to_drop = []  
-    rows_to_add = []
-
-    # iterate through the rows
-    for i, row in df_phoneme.iterrows():
-        if row['phoneme'] in ['n', 'eh', 'v', 'axr']:
-            # later to drop the row
-            index_to_drop.append(i)
-
-            # calculate the gap
-            gap = row['diff_sample']/3
-
-            # split the row into three rows
-            row1 = [row['start_sample'], 
-                    row['start_sample'] + gap, 
-                    'b-'+row['phoneme'], 
-                    row['diff_sample']]
-            row2 = [row1[1], row1[1] + gap, 'm-'+row['phoneme'], row1[3]]
-            row3 = [row2[1], row['end_sample'], 'e-'+row['phoneme'], row2[3]]
-
-            rows_to_add.append(row1)
-            rows_to_add.append(row2)
-            rows_to_add.append(row3)
-
-        else:
-            pass
-
-    # drop the rows
-    df_phoneme = df_phoneme.drop(index_to_drop)
-
-    # add the rows
-    df_phoneme = pd.concat([df_phoneme, 
-                            pd.DataFrame(rows_to_add, columns=df_phoneme.columns)], 
-                            ignore_index=True)
-
-    # sort by start_sample
-    df_phoneme = df_phoneme.sort_values('start_sample').reset_index(drop=True)
-
-    return df_phoneme
 
 
 def get_label_df(phn_path: str, 

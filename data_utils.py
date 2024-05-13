@@ -3,7 +3,6 @@ import numpy as np
 import re
 import librosa 
 import config
-from get_prob import split_phoneme
 from find_files import get_train_test_paths
 
 def _list_to_df(data: list, variable_name: str) -> pd.DataFrame:
@@ -146,6 +145,53 @@ def process_audio_file(audio_file_path: str,
     mfcc_df = _construct_mfcc_df(mfcc, win_length=win_length, hop_length=hop_length)
 
     return mfcc_df 
+
+
+def split_phoneme(df_phoneme: pd.DataFrame) -> pd.DataFrame:
+    """
+    if the phoneme is one of 'n', 'eh', 'v', 'axr', split into three rows
+    with equal gap between the start_sample and end_sample
+    """
+
+    index_to_drop = []  
+    rows_to_add = []
+
+    # iterate through the rows
+    for i, row in df_phoneme.iterrows():
+        if row['phoneme'] in ['n', 'eh', 'v', 'axr']:
+            # later to drop the row
+            index_to_drop.append(i)
+
+            # calculate the gap
+            gap = row['diff_sample']/3
+
+            # split the row into three rows
+            row1 = [row['start_sample'], 
+                    row['start_sample'] + gap, 
+                    'b-'+row['phoneme'], 
+                    row['diff_sample']]
+            row2 = [row1[1], row1[1] + gap, 'm-'+row['phoneme'], row1[3]]
+            row3 = [row2[1], row['end_sample'], 'e-'+row['phoneme'], row2[3]]
+
+            rows_to_add.append(row1)
+            rows_to_add.append(row2)
+            rows_to_add.append(row3)
+
+        else:
+            pass
+
+    # drop the rows
+    df_phoneme = df_phoneme.drop(index_to_drop)
+
+    # add the rows
+    df_phoneme = pd.concat([df_phoneme, 
+                            pd.DataFrame(rows_to_add, columns=df_phoneme.columns)], 
+                            ignore_index=True)
+
+    # sort by start_sample
+    df_phoneme = df_phoneme.sort_values('start_sample').reset_index(drop=True)
+
+    return df_phoneme
 
 def label_df_mfcc(df_mfcc, df_phoneme):
     '''
@@ -330,6 +376,6 @@ def concat_df(keyword: str = 'never',
             concat_df = pd.concat([concat_df, df], ignore_index=True)
 
     # save the dataframe
-    concat_df.to_csv(f'processed_data/dnn_train_{keyword}_{dataset_type}.csv', index=False)
+    concat_df.to_csv(f'processed_data/dnn_{keyword}_{dataset_type}.csv', index=False)
 
     return concat_df
