@@ -96,6 +96,7 @@ def get_transition_df(df_label: pd.DataFrame,
 
     return transition_df
 
+
 # split files into training and testing first
 def get_prior_transition(keyword: str,
                          log_space: bool = True,):
