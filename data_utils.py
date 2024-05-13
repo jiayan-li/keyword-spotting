@@ -40,8 +40,8 @@ def load_data(file_path: str, data_type: str) -> pd.DataFrame:
     """
     Load time-aligned phoneme or word data.
         type: str, one of "phoneme", "word"
-        Ex: df_phoneme = load_data('timit/data/TRAIN/DR4/MGAG0/SI2209.PHN', 'phoneme')
-            df_word = load_data('timit/data/TRAIN/DR4/MGAG0/SI2209.WRD', 'word')
+        Ex: df_phoneme = load_data('timit/data/TRAIN/DR4/MGAG0/SI2209.PHN', 'phoneme') 
+            df_word = load_data('timit/data/TRAIN/DR4/MGAG0/SI2209.WRD', 'word') 
     """
 
     if data_type not in ['phoneme', 'word']:
@@ -61,7 +61,7 @@ def load_data(file_path: str, data_type: str) -> pd.DataFrame:
         df['phoneme'] = df['phoneme'].apply(lambda x: "h#" if x in ['epi', 'pau'] else x)
 
     return df
-   
+  
 def load_transcript(file_path: str) -> str:
     """
     Load the transcript data.

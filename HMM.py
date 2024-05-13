@@ -109,6 +109,7 @@ class HMM():
 
 
 # Example usage
+'''
 states = np.array([0, 1])  # Example state space
 init_probs = np.array([0.6, 0.4])  # Example initial probabilities
 trans_matrix = np.array([[0.7, 0.3], [0.4, 0.6]])  # Example transition matrix
@@ -125,3 +126,4 @@ emit_matrix = np.column_stack(([0.9, 0.2],  # o=0 is observed. P(o=0|s=0)=0.9 an
 myHMM = HMM(states, init_probs, trans_matrix)
 path, highest_prob, prob_matrix = myHMM.viterbi(emit_matrix)
 print("Decoded Path:", path, "Highest probability: ", highest_prob, "Prob matrix:", prob_matrix)
+'''
