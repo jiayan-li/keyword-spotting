@@ -12,7 +12,7 @@ PHONEME_LIST = [
  ('axr', '#b')]
 
 # Position of phonemes in the label vector. 
-phoneme_to_idx = {'#bn':0, 'n':1, 'neh':2, 'eh':3, 'ehv':4, 
-                       'v':5, 'vaxr':6, 'axr':7, 'axr#b':8, '#b':9, 'h#': 10}
+phoneme_to_idx = {'#bn':0, 'h#n', 'n':1, 'neh':2, 'eh':3, 'ehv':4, 
+                  'v':5, 'vaxr':6, 'axr':7, 'axr#b':8, '#b':9, 'h#': 10}
 
 

@@ -1,12 +1,14 @@
+from config import PHONEME_LIST
+
 from data_utils import (load_data, 
                         process_audio_file, 
                         label_df_mfcc)
-from find_files import get_all_paths
+from find_files import get_train_test_paths
 from typing import List, Optional, Tuple
 import pandas as pd
 import numpy as np
-from config import PHONEME_LIST
-import pickle
+from joblib import load 
+
 
 def get_label_df(phn_path: str, 
                  wav_path: str,
@@ -51,18 +53,15 @@ def get_prior(df_label: pd.DataFrame,
 def transition_prob(phoneme: Tuple[str], 
                     next_phoneme: Tuple[str], 
                     df_label: pd.DataFrame,
-                    log_space: bool = True) -> float:
+                    log_space: bool = True
+                    ) -> Tuple[int, int]:
     """
     Get the transition probability of the specified phonemes.
     """
 
     current_phoneme_count = sum(df_label['phoneme'] == phoneme)
-    # print(current_phoneme_count)
-    if current_phoneme_count == 0:
-        return 0.0
-    
-    transition_count = sum((df_label['phoneme'] == phoneme) & (df_label['phoneme'].shift(-1) == next_phoneme))
-    # print(transition_count)
+    transition_count = sum((df_label['phoneme'] == phoneme) & 
+                           (df_label['phoneme'].shift(-1) == next_phoneme))
 
     return current_phoneme_count, transition_count
 
@@ -73,7 +72,10 @@ def transition_prob(phoneme: Tuple[str],
 
 def get_transition_list(phoneme_list: List[str] = PHONEME_LIST
                         ) -> List[Tuple[Tuple[str], Tuple[str]]]:
-    
+    """
+    get the list of transition tuples
+    """
+
     transition_list = [[(phoneme_list[i], phoneme_list[i]), (phoneme_list[i], phoneme_list[i+1])] for i in range(len(phoneme_list) - 1)]
     
     # Flatten the list of lists
@@ -87,48 +89,37 @@ def get_transition_df(df_label: pd.DataFrame,
     The dataframe should have a column 'phoneme'.
     """
 
+    # Get list of all possible transitions between phonemes
     transition_list = get_transition_list(PHONEME_LIST)
+    
+    # Create DataFrame to store transition data
     transition_df = pd.DataFrame(transition_list, columns=['source_phoneme', 'next_phoneme'])
-    transition_df['source_count'] = transition_df.apply(
-        lambda x: transition_prob(x['source_phoneme'], x['next_phoneme'], df_label)[0], axis=1)
-    transition_df['transition_count'] = transition_df.apply(
-        lambda x: transition_prob(x['source_phoneme'], x['next_phoneme'], df_label)[1], axis=1)
-
+    
+    # Compute transition and source counts for each transition
+    transition_df['source_count'], transition_df['transition_count'] = zip(*transition_df.apply(
+        lambda x: transition_prob(x['source_phoneme'], x['next_phoneme'], df_label), axis=1))
+    
     return transition_df
 
 
-# split files into training and testing first
-def get_prior_transition(keyword: str,
+def get_prior_transition(keyword: str = 'never',
+                         dataset_type: str = 'train',
                          log_space: bool = True,):
 
-    # check if saved locally
-    try:
-        with open(f'processed_data/wav_paths_{keyword}.pkl', 'rb') as f:
-            wav_paths = pickle.load(f)
-        with open(f'processed_data/phn_paths_{keyword}.pkl', 'rb') as f:
-            phn_paths = pickle.load(f)
-
-    except FileNotFoundError:
-        # find the files with the keyword
-        wav_paths = get_all_paths(keyword, 'wav')
-        phn_paths = get_all_paths(keyword, 'phn')
-
-        # save the two lists to pickle
-        with open(f'processed_data/wav_paths_{keyword}.pkl', 'wb') as f:
-            pickle.dump(wav_paths, f)
-        with open(f'processed_data/phn_paths_{keyword}.pkl', 'wb') as f:
-            pickle.dump(phn_paths, f)
+    if dataset_type:
+        # list of tuples
+        dataset = get_train_test_paths(keyword)[dataset_type]
 
     # store the prior and transition probability
     prior_combined = None
     transition_combined = None
 
-    for i in range(len(wav_paths))[:5]:
-        wav_path = wav_paths[i]
-        phn_path = phn_paths[i]
+    for path_tup in dataset[:5]:
+        wav_path = path_tup[0]
+        phn_path = path_tup[1]
         df_label = get_label_df(phn_path, wav_path)
-        prior = get_prior(df_label, log_space)
-        transition = get_transition_df(df_label, log_space)
+        prior = get_prior(df_label)
+        transition = get_transition_df(df_label)
 
         if prior_combined is None:
             prior_combined = prior.copy()
