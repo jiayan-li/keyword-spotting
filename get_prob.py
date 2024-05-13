@@ -70,6 +70,7 @@ def get_label_df(phn_path: str,
         raise ValueError('The two paths should be the same except for the file extension.')
 
     df_phn = load_data(phn_path, 'phoneme')
+    df_phn = split_phoneme(df_phn)
     df_mfcc = process_audio_file(wav_path, 
                                  win_length=win_length, 
                                  hop_length=hop_length)
@@ -81,138 +82,166 @@ def get_label_df(phn_path: str,
     
     return df_label
 
-# we should only count prior probability of the input of the NN
-def get_prior(df_label: pd.DataFrame,
-              log_space: bool = True) -> pd.DataFrame:
+def get_prior_count(df_label: pd.DataFrame,
+                    phoneme_list: List[str] = PHONEME_LIST
+                    ) -> pd.DataFrame:
     """
-    Get the prior probability of the phonemes.
+    Get the prior count of the phonemes.
     The dataframe should have a column 'phoneme'.
     """
     
-    prior = df_label['phoneme'].value_counts()
-    prior = prior.reset_index()
+    phonemes = [phoneme for tup in df_label['phoneme'].values for phoneme in tup]
+    prior = pd.Series(phonemes).value_counts().reset_index()
     prior.columns = ['phoneme', 'count']
-    # if log_space:
-    #     prior['prior'] = prior['prior'].apply(lambda x: np.log(x))
 
     return prior
 
-# def single_phoneme(phoneme_list = PHONEME_LIST):
-
-#     # flatten
-
-def count_transition(source_phoneme: Tuple[str], 
-                     target_phoneme: Tuple[str],):
+def get_transition_count(phoneme: Tuple[str], 
+                         next_phoneme: Tuple[str], 
+                         df_label: pd.DataFrame,
+                        ) -> Tuple[int, int]:
     """
-    sourece_phoneme = (h#, n)
-    target_phoneme = (h#, n, eh)
-
-    returns {((h#, n), (h#, n)): 1, ((h#, n), (n)): 1, ((n), (n, eh)): 1}
-
-
-    edge case:
-    sourece_phoneme = (h#, n)
-    target_phoneme = (a, n)
+    takes in two phonemes and return the count of the first phoneme and 
+    the transition count (from the first to next phoneme).
     """
 
-    
-    tran_list = get_transition_list(PHONEME_LIST)
-
-    transition_dict = {}
-    source_id = None
-    target_id = None
-
-    for i, phoneme_tup in enumerate(tran_list):
-        if phoneme_tup[0] == source_phoneme:
-            source_id = i
-        if phoneme_tup[1] == target_phoneme:
-            target_id = i
-
-
-
-
-
-def transition_prob(phoneme: Tuple[str], 
-                    next_phoneme: Tuple[str], 
-                    df_label: pd.DataFrame,
-                    log_space: bool = True
-                    ) -> Tuple[int, int]:
-    """
-    Get the transition probability of the specified phonemes.
-    """
-
-    current_phoneme_count = sum(df_label['phoneme'] == phoneme)
-    transition_count = sum((df_label['phoneme'] == phoneme) & 
-                           (df_label['phoneme'].shift(-1) == next_phoneme))
+    current_phoneme_count = sum(df_label['first_phoneme'] == phoneme)
+    transition_count = sum((df_label['first_phoneme'] == phoneme) & 
+                           (df_label['first_phoneme'].shift(-1) == next_phoneme))
 
     return current_phoneme_count, transition_count
 
-    # if log_space:
-    #     return np.log(transition_count) - np.log(current_phoneme_count)
-    # else:
-    #     return transition_count/current_phoneme_count
-
-def get_transition_list(phoneme_list: List[str] = PHONEME_LIST
+def _get_transition_list(phoneme_list: List[str] = PHONEME_LIST
                         ) -> List[Tuple[Tuple[str], Tuple[str]]]:
     """
     get the list of transition tuples
     """
 
-    transition_list = [[(phoneme_list[i], phoneme_list[i]), (phoneme_list[i], phoneme_list[i+1])] for i in range(len(phoneme_list) - 1)]
+    # drop 'h#', '#b' from the list first
+    phoneme_list = [i for i in phoneme_list if i not in ['h#', '#b']]
+
+    transition_list = [[(phoneme_list[i], phoneme_list[i]), 
+                        (phoneme_list[i], phoneme_list[i+1])] 
+                        for i in range(len(phoneme_list) - 1)]
     
     # Flatten the list of lists
     transition_list = [item for sublist in transition_list for item in sublist]
+    
     return transition_list
 
-def get_transition_df(df_label: pd.DataFrame,
-                      log_space: bool = True) -> pd.DataFrame:
+def get_transition_df(df_label: pd.DataFrame
+                      ) -> pd.DataFrame:
     """
     Get the transition probability of the phonemes.
     The dataframe should have a column 'phoneme'.
     """
 
     # Get list of all possible transitions between phonemes
-    transition_list = get_transition_list(PHONEME_LIST)
+    transition_list = _get_transition_list(PHONEME_LIST)
     
     # Create DataFrame to store transition data
     transition_df = pd.DataFrame(transition_list, columns=['source_phoneme', 'next_phoneme'])
     
-    # Compute transition and source counts for each transition
+    # Get the count of each phoneme and transition
     transition_df['source_count'], transition_df['transition_count'] = zip(*transition_df.apply(
-        lambda x: transition_prob(x['source_phoneme'], x['next_phoneme'], df_label), axis=1))
+        lambda x: get_transition_count(x['source_phoneme'], x['next_phoneme'], df_label), axis=1))
     
     return transition_df
 
+def _add_counts(df1: pd.DataFrame, 
+                df2: pd.DataFrame,
+                prob_type: str,) -> pd.DataFrame:
+    """
+    Add counts together from two DataFrames based on matching 'phoneme' values.
+    """
+
+    if prob_type not in ['prior', 'transition']:
+        raise ValueError('type should be either prior or transition.')
+
+    if prob_type == 'prior':
+        merge_on = 'phoneme'
+        merged_df = pd.merge(df1, df2, on=merge_on, how='outer', suffixes=('_df1', '_df2'))
+        merged_df['count'] = merged_df['count_df1'].fillna(0) + merged_df['count_df2'].fillna(0)
+
+    else:
+        merge_on = ['source_phoneme', 'next_phoneme']
+        merged_df = pd.merge(df1, df2, on=merge_on, how='outer', suffixes=('_df1', '_df2'))
+        merged_df['source_count'] = merged_df['source_count_df1'].fillna(0) + merged_df['source_count_df2'].fillna(0)
+        merged_df['transition_count'] = merged_df['transition_count_df1'].fillna(0) + merged_df['transition_count_df2'].fillna(0)
+    
+
+    columns_to_drop = [col for col in merged_df.columns if 'df1' in col or 'df2' in col]
+    # print(columns_to_drop)
+    merged_df = merged_df.drop(columns_to_drop, axis=1)
+    
+    return merged_df
+
+def _adjust_row_order(df_transition: pd.DataFrame,
+                      transition_list: List[Tuple[str, str]]  
+                      ) -> pd.DataFrame:
+    
+    new_df = pd.DataFrame(index=pd.MultiIndex.from_tuples(transition_list, names=['source_phoneme', 'next_phoneme']))
+    df_transition.set_index(['source_phoneme', 'next_phoneme'], inplace=True)
+    
+    return df_transition.reindex(new_df.index).reset_index(drop=False)
 
 def get_prior_transition(keyword: str = 'never',
                          dataset_type: str = 'train',
-                         log_space: bool = True,):
+                         phoneme_list: List[str] = PHONEME_LIST,
+                         log_space: bool = True,
+                         ) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    Main function to get the prior and transition probability of the phonemes
+    for training dataset.
+    """
 
     if dataset_type:
         # list of tuples
         dataset = get_train_test_paths(keyword)[dataset_type]
 
     # store the prior and transition probability
-    prior_combined = None
-    transition_combined = None
+    prior_concat = pd.DataFrame(columns=['phoneme', 'count'])
+    prior_concat['phoneme'] = phoneme_list
+    prior_concat['count'] = 0
+    transition_concat = pd.DataFrame(columns=['source_phoneme', 
+                                              'next_phoneme', 
+                                              'source_count', 
+                                              'transition_count'])
+    # Get list of all possible transitions between phonemes
+    transition_list = _get_transition_list(PHONEME_LIST)
+    
+    # Create DataFrame to store transition data
+    transition_concat = pd.DataFrame(transition_list, 
+                                     columns=['source_phoneme', 'next_phoneme'])
+    transition_concat['source_count'] = 0
+    transition_concat['transition_count'] = 0
 
-    for path_tup in dataset[:5]:
+    for path_tup in dataset:
         wav_path = path_tup[0]
         phn_path = path_tup[1]
         df_label = get_label_df(phn_path, wav_path)
-        prior = get_prior(df_label)
+        prior = get_prior_count(df_label)
         transition = get_transition_df(df_label)
 
-        if prior_combined is None:
-            prior_combined = prior.copy()
-        else:
-            prior_combined = pd.concat([prior_combined, prior])
-            prior_combined = prior_combined.groupby('phoneme').sum().reset_index()
-        
-        if transition_combined is None:
-            transition_combined = transition.copy()
-        else:
-            transition_combined = pd.concat([transition_combined, transition])
-            transition_combined = transition_combined.groupby(['source_phoneme', 'next_phoneme']).sum().reset_index()
+        # merget the count
+        prior_concat = _add_counts(prior_concat, 
+                                   prior, 
+                                   'prior')
+        transition_concat = _add_counts(transition_concat, 
+                                        transition, 
+                                        'transition')
 
-    return prior_combined, transition_combined
+    # adjust the row order
+    transition_concat = _adjust_row_order(transition_concat, 
+                                          transition_list)
+
+    # get log probability
+    if log_space:
+        prior_concat['log_prior'] = np.log(prior_concat['count']) - np.log(sum(prior_concat['count']))
+        transition_concat['log_transition'] = np.log(transition_concat['transition_count']) - np.log(transition_concat['source_count'])
+    
+    # save to processed_data
+    prior_concat.to_csv(f'processed_data/prior_{dataset_type}_{keyword}.csv', index=False)
+    transition_concat.to_csv(f'processed_data/transition_{dataset_type}_{keyword}.csv', index=False)
+
+    return prior_concat, transition_concat
