@@ -31,10 +31,10 @@ def split_phoneme(df_phoneme: pd.DataFrame) -> pd.DataFrame:
             # split the row into three rows
             row1 = [row['start_sample'], 
                     row['start_sample'] + gap, 
-                    row['phoneme'], 
+                    'b-'+row['phoneme'], 
                     row['diff_sample']]
-            row2 = [row1[1], row1[1] + gap, row1[2], row1[3]]
-            row3 = [row2[1], row['end_sample'], row2[2], row2[3]]
+            row2 = [row1[1], row1[1] + gap, 'm-'+row['phoneme'], row1[3]]
+            row3 = [row2[1], row['end_sample'], 'e-'+row['phoneme'], row2[3]]
 
             rows_to_add.append(row1)
             rows_to_add.append(row2)
