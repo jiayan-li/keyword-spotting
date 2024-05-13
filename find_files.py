@@ -70,6 +70,10 @@ def process_all_prompts(
         keyword: str = 'never',
         tartget_phoneme: List[str] = ['n', 'eh', 'v', 'axr'],
         prompts_file_path: str = 'timit/PROMPTS.txt') -> pd.DataFrame:
+    """
+    generate a dataframe that contains the following columns:
+    prompt, prompt_id, file_count, contain_keyword, n, eh, v, axr
+    """
 
     with open(prompts_file_path, 'r') as file:
         prompt = file.readlines()
@@ -122,7 +126,7 @@ def _get_prompt_id_list(df: pd.DataFrame) -> List[str]:
 
     return prompt_id
 
-def _shuffle_and_split(input_list,
+def _shuffle_and_split(input_list: list,
                        train_ratio: float = 0.5) -> Tuple[List, List]:
     # Shuffle the input list randomly
     random.shuffle(input_list)
@@ -149,6 +153,20 @@ def get_prompt_id_paths(prompt_id: List[str],
         path_list.extend(path)
 
     return path_list
+
+def get_all_paths(keyword: str = 'never', 
+                   file_type: Optional[str] = 'wav'
+                         ) -> List[str]: 
+     """
+     Get the list of path of the files of specified type that contain the keyword
+     """
+
+     df = process_all_prompts(keyword)
+     prompt_id = _get_prompt_id_list(df)
+     path_list = []
+     for id in prompt_id:
+         path = _get_path_list(id, file_type)
+         path_list.extend(path)
 
 def get_train_test_paths(keyword: str = 'never'
                          ) -> Tuple[List[str], List[str]]:
