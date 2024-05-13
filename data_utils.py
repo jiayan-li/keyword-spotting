@@ -205,7 +205,7 @@ def vectorize_label_df_mfcc(df_mfcc, df_phoneme):
         # If there is no overlap
         if overlaps.empty:
             print(f'Caution: There is no time-overlapping rows for start {start} and end {end}')
-            return {}
+            return None 
 
         # Calculate overlap for each phoneme
         overlaps['overlap_length'] = overlaps.apply(
@@ -214,22 +214,26 @@ def vectorize_label_df_mfcc(df_mfcc, df_phoneme):
         total_overlap = overlaps['overlap_length'].sum()
         
         # Calculate and return overlap weights normalized to sum to 1
-        if total_overlap > 0:
-            overlaps['weights'] = overlaps['overlap_length'] / total_overlap
-            # Return a dictionary with phonemes as keys and their weights as values
-            return dict(zip(overlaps['phoneme'], overlaps['weights']))
-        
-        # Default return if there is no overlap or if total overlap sum is zero
-        print('Error: The total overlap sum is zero')
-        return {}  # Returning an empty dictionary if no suitable match is found
+        if total_overlap <= 0:
+            raise ValueError('total_overlap is not larger than zero.')
 
+        overlaps['weights'] = overlaps['overlap_length'] / total_overlap
+        # Return a dictionary with phonemes as keys and their weights as values
+        weight_dic = {}
+        for i, row in overlaps.iterrows():
+            if row['phoneme'] not in weight_dic:
+                weight_dic[row['phoneme']] = row['weights']
+            else:
+                weight_dic[row['phoneme']] += row['weights']
+
+        return weight_dic
+        
     new_df['state_weights'] = new_df.apply(lambda row: find_state_weights(row['start_sample'], row['end_sample']), axis=1)
-    
+    '''
     def distribute_weights(weight_dic):
-        '''
-        Distribute the weights of phonemes if there are intersections.
         We do not use this function in the new version of state definitions (start, mid, end)
-        '''
+        Distribute the weights of phonemes if there are intersections.
+        
         # Do not distribute if there is only one label.
         if len(weight_dic) == 1:
             return weight_dic
@@ -248,7 +252,7 @@ def vectorize_label_df_mfcc(df_mfcc, df_phoneme):
         new_label_str = ''.join(new_label)
         weight_dic[new_label_str] = 0.5
         return weight_dic
-
+    '''
     def create_label_vector(weight_dic):
         # Create label vector that has the same dimension as the number of phoneme classes.
         num_labels = len(config.PHONEME_DICT)
