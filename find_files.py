@@ -1,8 +1,11 @@
 import re
 import pandas as pd
-from typing import List, Optional
+from typing import List, Optional, Tuple
 from data_utils import load_data
 import glob
+import pickle
+import random
+
 
 def _seperate_string(input_string: str) -> list:
     
@@ -119,18 +122,57 @@ def _get_prompt_id_list(df: pd.DataFrame) -> List[str]:
 
     return prompt_id
 
-def get_all_paths(keyword: str = 'never', 
-                  file_type: Optional[str] = 'wav'
+def _shuffle_and_split(input_list,
+                       train_ratio: float = 0.5) -> Tuple[List, List]:
+    # Shuffle the input list randomly
+    random.shuffle(input_list)
+
+    # Calculate the split index
+    split_index = int(len(input_list) * train_ratio)
+    
+    # Split the list into two parts
+    part1 = input_list[:split_index]
+    part2 = input_list[split_index:]
+    
+    return part1, part2
+
+def get_prompt_id_paths(prompt_id: List[str],  
+                        file_type: Optional[str] = 'wav'
                         ) -> List[str]: 
     """
-    Get the list of path of the files of specified type that contain the keyword
+    Get the path of the files with the given prompt_id list
     """
-    
-    df = process_all_prompts(keyword)
-    prompt_id = _get_prompt_id_list(df)
+
     path_list = []
     for id in prompt_id:
         path = _get_path_list(id, file_type)
         path_list.extend(path)
 
     return path_list
+
+def get_train_test_paths(keyword: str = 'never'
+                         ) -> Tuple[List[str], List[str]]:
+    df = process_all_prompts(keyword)
+    prompt_id = _get_prompt_id_list(df)
+    # split the prompt_id into 2 parts randomly
+    train_id, test_id = _shuffle_and_split(prompt_id)
+
+    try:
+        with open(f'processed_data/train_test_{keyword}.pkl', 'wb') as f:
+            train_test_data = pickle.load(train_test_data, f)
+
+    except FileNotFoundError:
+        train_wav = get_prompt_id_paths(train_id, 'wav')
+        test_wav = get_prompt_id_paths(test_id, 'wav')
+
+        train_phn = get_prompt_id_paths(train_id, 'phn')
+        test_phn = get_prompt_id_paths(test_id, 'phn')
+
+        train_test_data = {'train_wav': train_wav, 'test_wav': test_wav,
+                           'train_phn': train_phn, 'test_phn': test_phn}
+        
+        with open(f'processed_data/train_test_{keyword}.pkl', 'wb') as f:
+            pickle.dump(train_test_data, f)
+
+    return train_test_data
+
