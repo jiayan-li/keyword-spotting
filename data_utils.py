@@ -164,23 +164,23 @@ def label_df_mfcc(df_mfcc, df_phoneme):
         # Filter df_phoneme to find rows where the time interval overlaps with the mfcc interval 
         overlaps = df_phoneme[(df_phoneme['start_sample'] <= end) & (df_phoneme['end_sample'] >= start)]
         
-        # Check if there is any overlap
-        if not overlaps.empty:
-            phonemes = overlaps['phoneme'].tolist()
-            # Return all unique phonemes preserving their order
-            seen = set()
-            unique_phonemes = []
-            for phoneme in phonemes:
-                if phoneme not in seen:
-                    seen.add(phoneme)
-                    unique_phonemes.append(phoneme)
-            return ', '.join(unique_phonemes)
-        
-        # Default return if there is no overlap
-        print(f'For start {start} and end {end}, there is no time-overlapping row.')
-        return 'unlabeled'  # Or some other default value if no suitable match is found
+        if overlaps.empty:
+            # Default return if there is no overlap
+            print(f'For start {start} and end {end}, there is no time-overlapping row.')
+            return 'unlabeled'  
 
-    # Apply the function to each row in df_mfcc
+        # Check if there is any overlap
+        phonemes = overlaps['phoneme'].tolist()
+        # Return all unique phonemes preserving their order
+        seen = set()
+        unique_phonemes = []
+        for phoneme in phonemes:
+            if phoneme not in seen:
+                seen.add(phoneme) 
+                unique_phonemes.append(phoneme) 
+        return ', '.join(unique_phonemes) 
+
+    # Apply the function to each row in df_mfcc 
     new_df['phoneme'] = new_df.apply(lambda row: find_phoneme(row['start_sample'], row['end_sample']), axis=1) 
     return new_df
 
@@ -188,12 +188,13 @@ def vectorize_label_df_mfcc(df_mfcc, df_phoneme):
     '''
     Given a dataframe that contains MFCC and phoneme labels as string, create vector labels.
     Parameters:
-        df_mfcc: pd dataframe.
+        df_mfcc: pd.dataframe. That contains MFCC and start-end times of frames.
+        df_phoneme: pd.dataframe. Contains the phoneme labels and their start-end times.
     Return:
-        new_df: New dataframe that contains the vector labels.
+        new_df: New dataframe that contains the labels for each dataframe. 
     '''
     new_df = df_mfcc.copy() 
-    def find_phoneme_weights(start, end):
+    def find_state_weights(start, end):
         # Filter df_phoneme to find rows where the time interval overlaps with the mfcc interval
         overlaps = df_phoneme[(df_phoneme['start_sample'] <= end) & (df_phoneme['end_sample'] >= start)]
 
@@ -218,9 +219,13 @@ def vectorize_label_df_mfcc(df_mfcc, df_phoneme):
         print('Error: The total overlap sum is zero')
         return {}  # Returning an empty dictionary if no suitable match is found
 
-    new_df['phoneme_weights'] = new_df.apply(lambda row: find_phoneme_weights(row['start_sample'], row['end_sample']), axis=1)
+    new_df['state_weights'] = new_df.apply(lambda row: find_state_weights(row['start_sample'], row['end_sample']), axis=1)
     
     def distribute_weights(weight_dic):
+        '''
+        Distribute the weights of phonemes if there are intersections.
+        We do not use this function in the new version of state definitions (start, mid, end)
+        '''
         # Do not distribute if there is only one label.
         if len(weight_dic) == 1:
             return weight_dic
@@ -240,19 +245,19 @@ def vectorize_label_df_mfcc(df_mfcc, df_phoneme):
         weight_dic[new_label_str] = 0.5
         return weight_dic
 
-    new_df['distributed_weights'] = new_df.apply(lambda row: distribute_weights(row['phoneme_weights']), axis=1) 
-
     def create_label_vector(weight_dic):
         # Create label vector that has the same dimension as the number of phoneme classes.
-        num_labels = len(config.phoneme_to_idx)
+        num_labels = len(config.PHONEME_DICT)
         label = np.zeros(num_labels)
         for key, val in weight_dic.items():
-            if key in config.phoneme_to_idx:
-                idx = config.phoneme_to_idx[key]
+            if key in config.PHONEME_DICT:
+                idx = config.PHONEME_DICT[key]
                 label[idx] = val
+            else:
+                print(f'The state {key} does not exist in the config.')
         return label
 
-    new_df['label'] = new_df.apply(lambda row: create_label_vector(row['distributed_weights']), axis=1) 
+    new_df['label'] = new_df.apply(lambda row: create_label_vector(row['state_weights']), axis=1) 
     return new_df
 
 
