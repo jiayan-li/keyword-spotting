@@ -4,6 +4,7 @@ import re
 import librosa 
 import config
 from get_prob import split_phoneme
+from find_files import get_train_test_paths
 
 def _list_to_df(data: list, variable_name: str) -> pd.DataFrame:
     """
@@ -291,7 +292,44 @@ def prepare_data(phn_path: str,
                                  win_length=win_length, 
                                  hop_length=hop_length)
     df_label = label_df_mfcc(df_mfcc, df_phn)
-    return df_label, df_phn
     df_label = vectorize_label_df_mfcc(df_label, df_phn)
 
+    df_label = df_label[['mfcc', 'label', 'state_weights']]
+
     return df_label
+
+def concat_df(keyword: str = 'never',
+             dataset_type: str = 'train',
+             win_length: int = 400,
+             hop_length: int = 80,
+            ):
+    """
+    Main function to get the prior and transition probability of the phonemes
+    for training dataset.
+    """
+
+    if dataset_type:
+        # list of tuples
+        dataset = get_train_test_paths(keyword)[dataset_type]
+
+    concat_df = None
+
+    for path_tup in dataset:
+        wav_path = path_tup[0]
+        phn_path = path_tup[1]
+
+        df = prepare_data(phn_path, 
+                          wav_path,
+                          win_length=win_length,
+                          hop_length=hop_length)
+
+        # append df to concat_df vertically
+        if concat_df is None:
+            concat_df = df
+        else:
+            concat_df = pd.concat([concat_df, df], ignore_index=True)
+
+    # save the dataframe
+    concat_df.to_csv(f'processed_data/dnn_train_{keyword}_{dataset_type}.csv', index=False)
+
+    return concat_df
