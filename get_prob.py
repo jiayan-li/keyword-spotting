@@ -163,17 +163,34 @@ def _add_counts(
 
 
 def _adjust_row_order(
-    df_transition: pd.DataFrame, transition_list: List[Tuple[str, str]]
+    df_transition: pd.DataFrame, 
+    order_list: List,
+    prob_type: str,
 ) -> pd.DataFrame:
+    """
+    Adjust the row order of the DataFrame to match the order.
+    """
 
-    new_df = pd.DataFrame(
-        index=pd.MultiIndex.from_tuples(
-            transition_list, names=["source_phoneme", "next_phoneme"]
+    if prob_type not in ["prior", "transition"]:
+        raise ValueError("type should be either prior or transition.")
+    
+    if prob_type == "prior":
+        new_df = pd.DataFrame(index=order_list)
+        df_transition.set_index("phoneme", inplace=True)
+
+        return df_transition.reindex(new_df.index).reset_index(drop=False).rename(
+            columns={"index": "phoneme"}
         )
-    )
-    df_transition.set_index(["source_phoneme", "next_phoneme"], inplace=True)
+        
+    else:
+        new_df = pd.DataFrame(
+            index=pd.MultiIndex.from_tuples(
+                order_list, names=["source_phoneme", "next_phoneme"]
+            )
+        )
+        df_transition.set_index(["source_phoneme", "next_phoneme"], inplace=True)
 
-    return df_transition.reindex(new_df.index).reset_index(drop=False)
+        return df_transition.reindex(new_df.index).reset_index(drop=False)
 
 
 def get_prior_transition(
@@ -181,11 +198,22 @@ def get_prior_transition(
     dataset_type: str = "train",
     phoneme_list: List[str] = PHONEME_LIST,
     log_space: bool = True,
+    rerun: bool = False,
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
     Main function to get the prior and transition probability of the phonemes
     for training dataset.
     """
+
+    if not rerun:
+        try:
+            prior = pd.read_csv(f"processed_data/prior_{dataset_type}_{keyword}.csv")
+            transition = pd.read_csv(
+                f"processed_data/transition_{dataset_type}_{keyword}.csv"
+            )
+            return prior, transition
+        except FileNotFoundError:
+            pass
 
     if dataset_type:
         # list of tuples
@@ -220,7 +248,8 @@ def get_prior_transition(
         transition_concat = _add_counts(transition_concat, transition, "transition")
 
     # adjust the row order
-    transition_concat = _adjust_row_order(transition_concat, transition_list)
+    prior_concat = _adjust_row_order(prior_concat, phoneme_list, "prior")
+    transition_concat = _adjust_row_order(transition_concat, transition_list, "transition")
 
     # get log probability
     if log_space:
@@ -240,3 +269,63 @@ def get_prior_transition(
     )
 
     return prior_concat, transition_concat
+
+
+def get_prior_vector(prior_df: pd.DataFrame,
+                     drop_background: bool = True) -> np.ndarray:
+    """
+    Get the prior probability vector from the prior DataFrame.
+    """
+
+    if drop_background:
+        return np.array(prior_df["log_prior"].values)[:-2]
+    else:
+        return np.array(prior_df["log_prior"].values)
+
+
+def trainsition_matrix(trainsition_df: pd.DataFrame,
+                       phoneme_list: List[str] = PHONEME_LIST,
+                       ) -> np.ndarray:
+
+    """
+    Get the transition matrix from the transition DataFrame.
+    return:
+        transition_matrix: np.ndarray, 12x12 matrix
+    """
+
+    # initialize the matrix with rows and columns being the phoneme list
+    df_matrix = pd.DataFrame(
+        np.zeros((len(phoneme_list)-2, len(phoneme_list)-2)),
+        index=phoneme_list[:-2],
+        columns=phoneme_list[:-2],
+    )
+
+    # fill in the matrix using the transition DataFrame
+    for _, row in trainsition_df.iterrows():
+        df_matrix.loc[row["source_phoneme"], row["next_phoneme"]] = row["log_transition"]
+
+    # convert to numpy array
+    transition_matrix = df_matrix.to_numpy()
+
+    return transition_matrix
+
+
+def main(
+    keyword: str = "never",
+    dataset_type: str = "train",
+    phoneme_list: List[str] = PHONEME_LIST,
+    log_space: bool = True,
+    rerun: bool = False,
+):
+    """
+    main function to get the prior vector and transition matrix
+    """
+    
+    df_prior, df_transition = get_prior_transition(
+        keyword, dataset_type, phoneme_list, log_space, rerun
+    )
+
+    prior_vector = get_prior_vector(df_prior)
+    transition_matrix = trainsition_matrix(df_transition)
+
+    return prior_vector, transition_matrix
