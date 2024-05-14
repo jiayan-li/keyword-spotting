@@ -56,13 +56,16 @@ class HMM():
 
         Returns
         -------
-        path: np.ndarray
+        path: np.ndarray (num_obs,1)
             Path of states that has the highest probability
-        prob: np.ndarray
-            Probability of the path.
+        highest_prob: float
+            Probability of the path that has the highest probability.
+        prob: np.ndarray (num_obs, num_states)
+            Max probability of arriving at state s in frame t.
+
         '''
         num_states = len(self.states) 
-        num_obs = len(observations) 
+        num_obs = len(emit.shape[1]) 
         
         # Initialize probability and previous state matrices
         prob = np.zeros((num_obs, num_states))
@@ -95,6 +98,7 @@ class HMM():
             path[t] = prev[t+1][path[t+1]]
 
         return path, highest_prob, prob 
+
 
 
 
