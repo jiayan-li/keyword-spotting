@@ -74,15 +74,15 @@ class HMM():
         
         # Initialize the first observation
         for s in range(num_states):
-            prob[0][s] = self.init_probs[s] * emit[s][0]
-                
+            prob[0][s] = self.init_probs[s] + emit[s][0]
+
         # Fill the matrices
         for t in range(1, num_obs):
             for s in range(num_states):
                 max_prob = -1
                 max_state = -1
                 for r in range(num_states):
-                    current_prob = prob[t-1][r] * self.trans[r][s] * emit[s][t]
+                    current_prob = prob[t-1][r] + self.trans[r][s] + emit[s][t]
                     if current_prob > max_prob:
                         max_prob = current_prob
                         max_state = r
