@@ -1,15 +1,5 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Thu May  9 20:52:51 2024
-
-@author: eminozyoruk
-"""
-
 import numpy as np
 import pandas as pd
-
-
 
 class HMM():
     '''
