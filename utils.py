@@ -5,7 +5,7 @@ split files containing keyword into train and test
 
 import pandas as pd
 import re
-from joblin import load, dump
+from joblib import load, dump
 from typing import List, Optional, Tuple, Dict
 import random
 import glob
