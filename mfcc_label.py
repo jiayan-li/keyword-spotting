@@ -5,7 +5,7 @@ functions to extract MFCC features from audio files and label the MFCC features
 import numpy as np
 import librosa
 import config
-from find_files import get_train_test_paths
+from prepare_data import get_train_test_paths
 from utils import load_data, split_phoneme
 import pandas as pd
 
