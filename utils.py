@@ -5,7 +5,7 @@ split files containing keyword into train and test
 
 import pandas as pd
 import re
-from joblin import load, dump
+from joblib import load, dump
 from typing import List, Optional, Tuple, Dict
 import random
 import glob
@@ -342,8 +342,8 @@ def get_train_test_paths(
     )
 
     dataset = {
-        "train": [(p + ".WAV", p + ".PHN") for p in train_root_paths],
-        "test": [(p + ".WAV", p + ".PHN") for p in test_root_paths],
+        "train": [(p + ".WAV", p + ".PHN", p + ".WRD") for p in train_root_paths],
+        "test": [(p + ".WAV", p + ".PHN", p + ".WRD") for p in test_root_paths],
     }
 
     dump(dataset, f"processed_data/train_test_dataset_{keyword}.joblib")

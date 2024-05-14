@@ -5,7 +5,7 @@ functions to get the prior and transition probability of the phonemes
 from config import PHONEME_LIST
 from utils import load_data, split_phoneme
 from mfcc_label import process_audio_file, label_df_mfcc
-from prepare_data import get_train_test_paths
+from utils import get_train_test_paths
 from typing import List, Tuple
 import pandas as pd
 import numpy as np

@@ -1,5 +1,6 @@
 TEST_PHN_PATH = 'timit/data/TRAIN/DR2/FMMH0/SI907.PHN'
 TEST_WAV_PATH = 'timit/data/TRAIN/DR2/FMMH0/SI907.WAV'
+TEST_WRD_PATH = 'timit/data/TRAIN/DR2/FMMH0/SI907.WRD'
 # 'Somehow we old-timers never figured we would ever retire.'
 
 PHONEME_LIST = [
