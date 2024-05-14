@@ -253,12 +253,15 @@ def get_prior_transition(
 
     # get log probability
     if log_space:
-        prior_concat["log_prior"] = np.log(prior_concat["count"]) - np.log(
+        prior_concat["prior"] = np.log(prior_concat["count"]) - np.log(
             sum(prior_concat["count"])
         )
-        transition_concat["log_transition"] = np.log(
+        transition_concat["transition"] = np.log(
             transition_concat["transition_count"]
         ) - np.log(transition_concat["source_count"])
+    else:
+        prior_concat["prior"] = prior_concat["count"] / sum(prior_concat["count"])
+        transition_concat["transition"] = transition_concat["transition_count"] / transition_concat["source_count"]
 
     # save to processed_data
     prior_concat.to_csv(
@@ -278,10 +281,10 @@ def get_prior_vector(prior_df: pd.DataFrame,
     """
 
     if drop_background:
-        return np.array(prior_df["log_prior"].values)[:-2]
+        return np.array(prior_df["prior"].values)[:-2]
     else:
-        return np.array(prior_df["log_prior"].values)
-
+        return np.array(prior_df["prior"].values)
+    
 
 def trainsition_matrix(trainsition_df: pd.DataFrame,
                        phoneme_list: List[str] = PHONEME_LIST,
@@ -302,7 +305,7 @@ def trainsition_matrix(trainsition_df: pd.DataFrame,
 
     # fill in the matrix using the transition DataFrame
     for _, row in trainsition_df.iterrows():
-        df_matrix.loc[row["source_phoneme"], row["next_phoneme"]] = row["log_transition"]
+        df_matrix.loc[row["source_phoneme"], row["next_phoneme"]] = row["transition"]
 
     # convert to numpy array
     transition_matrix = df_matrix.to_numpy()
