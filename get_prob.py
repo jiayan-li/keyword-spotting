@@ -307,6 +307,9 @@ def trainsition_matrix(trainsition_df: pd.DataFrame,
     for _, row in trainsition_df.iterrows():
         df_matrix.loc[row["source_phoneme"], row["next_phoneme"]] = row["transition"]
 
+    # substitute the 0 values with np.log(1e-10)
+    df_matrix = df_matrix.replace(0, np.log(1e-10))
+
     # convert to numpy array
     transition_matrix = df_matrix.to_numpy()
 
