@@ -77,7 +77,8 @@ def _assemble_frame_info(
         last_phn_end_idx: int,
         batch_end_idx: int,
         batch_size: int,
-        log_space: bool = True):
+        log_space: bool = True,
+        dataset_type: str = "train"):
 
     batch_info = {}
     batch_info['input'] = wav_path
@@ -90,9 +91,9 @@ def _assemble_frame_info(
     emission_matrix = emission_matrix[:12, :]
     if log_space:
         # substitute 0 with -np.inf
-        emission_matrix = np.where(emission_matrix == 0, -np.inf, emission_matrix)
-        # add a small value to avoid log(0)
-        # emission_matrix = np.log(emission_matrix + 1e-10)
+        # emission_matrix = np.where(emission_matrix == 0, -np.inf, emission_matrix)
+        # if dataset_type == "train":
+        emission_matrix = np.log(emission_matrix + 1e-10)
     else:
         pass
 
@@ -129,7 +130,7 @@ def prepare_batch_matrix(word_path: str,
     """
 
     if dataset_type == "train":
-        df_label = get_label_df(phoneme_path, wav_path)
+        df_label = prepare_data(phoneme_path, wav_path)
     else:
         #TODO: change it into function
         test_dict = load('processed_data/test_data_for_hmm.joblib')
@@ -150,12 +151,12 @@ def prepare_batch_matrix(word_path: str,
 
     # sample random frames
     for end_id in random_idx:
-        batch_info = _assemble_frame_info(wav_path, df_label, last_phn_start_idx, last_phn_end_idx, end_id, batch_size, log_space)
+        batch_info = _assemble_frame_info(wav_path, df_label, last_phn_start_idx, last_phn_end_idx, end_id, batch_size, log_space, dataset_type)
         file_info.append(batch_info)
 
     # sample frames within the keyword
     for end_id in range(last_phn_start_idx, last_phn_end_idx+1):
-        batch_info = _assemble_frame_info(wav_path, df_label, last_phn_start_idx, last_phn_end_idx, end_id, batch_size, log_space)
+        batch_info = _assemble_frame_info(wav_path, df_label, last_phn_start_idx, last_phn_end_idx, end_id, batch_size, log_space, dataset_type)
 
         file_info.append(batch_info)
 
