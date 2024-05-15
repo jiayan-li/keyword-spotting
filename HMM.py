@@ -106,19 +106,21 @@ class HMM():
         return path, highest_prob, prob 
 
 
-def get_highest_prob_df(keyword: str = "never",
+def get_highest_prob_df(dataset_type: str = "train",
+                        keyword: str = "never",
                         batch_size: int = 60,
                         log_space: bool = True,
-                        phoneme_list: List[str] = PHONEME_LIST,):
+                        phoneme_list: List[str] = PHONEME_LIST):
     '''
     Set the threshold for the HMM model for the window
     to be classified as containing the keyword.
     '''
     
     # get the emission matrix and true labels for the training data
-    df_train_batch = batch_matrix_train(keyword=keyword, batch_size=batch_size)
+    df_batch = batch_matrix_train(keyword=keyword, batch_size=batch_size,
+                                        dataset_type=dataset_type, log_space=log_space)
 
-    df_path = df_train_batch.copy()
+    df_path = df_batch.copy()
     df_path['path'] = None
     df_path['highest_prob'] = None
     df_path['prob_matrix'] = None
@@ -130,7 +132,7 @@ def get_highest_prob_df(keyword: str = "never",
     hmm_model = HMM(prior_vector, transition_matrix)
 
     # iterate over the training data
-    for i, row in df_train_batch.iterrows():
+    for i, row in df_batch.iterrows():
         emission_matrix = row['emission_matrix']
         hmm_model.emit = emission_matrix
         path, highest_prob, prob_matrix = hmm_model.viterbi(emission_matrix)

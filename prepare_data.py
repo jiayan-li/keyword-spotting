@@ -4,6 +4,7 @@ functions to prepare data for system input and label
 
 import numpy as np
 import pandas as pd
+from joblib import load
 from get_prob import get_label_df
 from mfcc_label import prepare_data
 from utils import load_data, get_train_test_paths
@@ -82,13 +83,16 @@ def _assemble_frame_info(
     batch_info['input'] = wav_path
 
     emission_matrix = df_label.loc[batch_end_idx-batch_size+1: batch_end_idx, 'label']
+    
     # (14, batch_size) matrix
     emission_matrix = np.vstack(emission_matrix.to_numpy()).T
-    # to (batch_size, 12)
+    # to (12, batch_size) matrix
     emission_matrix = emission_matrix[:12, :]
     if log_space:
+        # substitute 0 with -np.inf
+        emission_matrix = np.where(emission_matrix == 0, -np.inf, emission_matrix)
         # add a small value to avoid log(0)
-        emission_matrix = np.log(emission_matrix + 1e-10)
+        # emission_matrix = np.log(emission_matrix + 1e-10)
     else:
         pass
 
@@ -108,7 +112,8 @@ def prepare_batch_matrix(word_path: str,
                          num_random: int,
                          batch_size: int = 60,
                          log_space: bool = True,
-                         random_seed: int = 42
+                         random_seed: int = 42,
+                         dataset_type: str = "train"
                          ) -> np.ndarray:
     """
     Prepare a batch matrix for the HMM model of size (batch_size, 14)
@@ -123,14 +128,23 @@ def prepare_batch_matrix(word_path: str,
         log_space: whether to convert the emission matrix to log space
     """
 
-    df_label = prepare_data(phoneme_path, wav_path)
+    if dataset_type == "train":
+        df_label = get_label_df(phoneme_path, wav_path)
+    else:
+        #TODO: change it into function
+        test_dict = load('processed_data/test_data_for_hmm.joblib')
+        df_label = test_dict[(wav_path, phoneme_path, word_path)]
+        df_label.columns = ['label']
+    
     key_frame_idx = _identify_key_frames(word_path, phoneme_path, wav_path)
     last_phn_start_idx = key_frame_idx['last_phn_start_idx']
     last_phn_end_idx = key_frame_idx['last_phn_end_idx']
     
-    # sample num_random idx from the range (batch_size, len(df_label))
-    random_idx = np.random.randint(batch_size, len(df_label), 
-                                   num_random, random_seed)
+    # Ensure reproducibility by setting the random seed
+    np.random.seed(random_seed)
+
+    # Generate random indices
+    random_idx = np.random.randint(low=batch_size, high=len(df_label), size=num_random)
 
     file_info = []
 
@@ -152,22 +166,34 @@ def batch_matrix_train(
         keyword: str = "never",
         num_random: int = 20,
         batch_size: int = 60,
-        log_space: bool = True):
+        log_space: bool = True,
+        random_seed: int = 42,
+        dataset_type: str = "train"):
     """
     Main function to prepare batch matrix for all files in the dataset
     """
 
-    dataset = get_train_test_paths(keyword, rerun=True)['train']
+    if dataset_type == "train":
+        dataset = get_train_test_paths(keyword)['train']
+    else:
+        dataset = get_train_test_paths(keyword)['test']
 
     all_batch_matrix = []
 
     for path_tup in dataset:
+        # print(path_tup)
         wav_path = path_tup[0]
         phn_path = path_tup[1]
         wrd_path = path_tup[2]
 
-        batch_matrix = prepare_batch_matrix(wrd_path, phn_path, wav_path, num_random, 
-                                            batch_size, log_space)
+        batch_matrix = prepare_batch_matrix(word_path=wrd_path, 
+                                            phoneme_path=phn_path, 
+                                            wav_path=wav_path, 
+                                            num_random=num_random, 
+                                            batch_size=batch_size, 
+                                            log_space=log_space, 
+                                            random_seed=random_seed,
+                                            dataset_type=dataset_type)
         all_batch_matrix.extend(batch_matrix)
 
     df_train_batch = pd.DataFrame(all_batch_matrix)
