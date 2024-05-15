@@ -69,38 +69,79 @@ def _get_all_frame_amount(
     return frame_amounts
 
 
+def _assemble_frame_info(
+        wav_path: str,
+        df_label: pd.DataFrame,
+        last_phn_start_idx: int,
+        last_phn_end_idx: int,
+        batch_end_idx: int,
+        batch_size: int,
+        log_space: bool = True):
+
+    batch_info = {}
+    batch_info['input'] = wav_path
+
+    emission_matrix = df_label.loc[batch_end_idx-batch_size+1: batch_end_idx, 'label']
+    # (14, batch_size) matrix
+    emission_matrix = np.vstack(emission_matrix.to_numpy()).T
+    # to (batch_size, 12)
+    emission_matrix = emission_matrix[:12, :]
+    if log_space:
+        # add a small value to avoid log(0)
+        emission_matrix = np.log(emission_matrix + 1e-10)
+    else:
+        pass
+
+    batch_info['emission_matrix'] = emission_matrix
+
+    # batch_end_idx = last_phn_end_idx+i
+    if last_phn_start_idx <= batch_end_idx <= last_phn_end_idx:
+        batch_info['label'] = 1
+    else:
+        batch_info['label'] = 0
+
+    return batch_info
+
 def prepare_batch_matrix(word_path: str, 
                          phoneme_path: str, 
                          wav_path: str,
-                         batch_per_file: int = 20,
+                         num_random: int,
                          batch_size: int = 60,
+                         log_space: bool = True,
+                         random_seed: int = 42
                          ) -> np.ndarray:
     """
     Prepare a batch matrix for the HMM model of size (batch_size, 14)
+    Args:
+        word_path: path to the word file
+        phoneme_path: path to the phoneme file
+        wav_path: path to the wav file
+        num_within_key_frames: number of frames within the keyword to be included
+            for the batch matrix
+        num_random: number of random frames to be included
+        batch_size: number of frames to be included in the batch matrix
+        log_space: whether to convert the emission matrix to log space
     """
 
     df_label = prepare_data(phoneme_path, wav_path)
     key_frame_idx = _identify_key_frames(word_path, phoneme_path, wav_path)
     last_phn_start_idx = key_frame_idx['last_phn_start_idx']
     last_phn_end_idx = key_frame_idx['last_phn_end_idx']
+    
+    # sample num_random idx from the range (batch_size, len(df_label))
+    random_idx = np.random.randint(batch_size, len(df_label), 
+                                   num_random, random_seed)
 
     file_info = []
 
-    for i in range(0-int(batch_per_file/2), int(batch_per_file/2)):
-        batch_info = {}
-        batch_info['input'] = wav_path
+    # sample random frames
+    for end_id in random_idx:
+        batch_info = _assemble_frame_info(wav_path, df_label, last_phn_start_idx, last_phn_end_idx, end_id, batch_size, log_space)
+        file_info.append(batch_info)
 
-        emission_matrix = df_label.loc[last_phn_end_idx-batch_size+1+i: last_phn_end_idx+i, 'label']
-        # (batch_size, 14) matrix
-        emission_matrix = np.vstack(emission_matrix.to_numpy())
-        # to (batch_size, 12)
-        emission_matrix = emission_matrix[:, :-2]
-        batch_info['emission_matrix'] = emission_matrix
-
-        if i<= 0 and last_phn_end_idx+i >= last_phn_start_idx:
-            batch_info['label'] = 1
-        else:
-            batch_info['label'] = 0
+    # sample frames within the keyword
+    for end_id in range(last_phn_start_idx, last_phn_end_idx+1):
+        batch_info = _assemble_frame_info(wav_path, df_label, last_phn_start_idx, last_phn_end_idx, end_id, batch_size, log_space)
 
         file_info.append(batch_info)
 
@@ -109,8 +150,9 @@ def prepare_batch_matrix(word_path: str,
 
 def batch_matrix_train(
         keyword: str = "never",
-        batch_per_file: int = 20,
-        batch_size: int = 60):
+        num_random: int = 20,
+        batch_size: int = 60,
+        log_space: bool = True):
     """
     Main function to prepare batch matrix for all files in the dataset
     """
@@ -124,7 +166,8 @@ def batch_matrix_train(
         phn_path = path_tup[1]
         wrd_path = path_tup[2]
 
-        batch_matrix = prepare_batch_matrix(wrd_path, phn_path, wav_path, batch_per_file, batch_size)
+        batch_matrix = prepare_batch_matrix(wrd_path, phn_path, wav_path, num_random, 
+                                            batch_size, log_space)
         all_batch_matrix.extend(batch_matrix)
 
     df_train_batch = pd.DataFrame(all_batch_matrix)

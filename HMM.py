@@ -107,7 +107,6 @@ class HMM():
 
 
 def get_highest_prob_df(keyword: str = "never",
-                        batch_per_file: int = 20,
                         batch_size: int = 60,
                         log_space: bool = True,
                         phoneme_list: List[str] = PHONEME_LIST,):
@@ -117,7 +116,7 @@ def get_highest_prob_df(keyword: str = "never",
     '''
     
     # get the emission matrix and true labels for the training data
-    df_train_batch = batch_matrix_train(keyword, batch_per_file, batch_size, log_space)
+    df_train_batch = batch_matrix_train(keyword=keyword, batch_size=batch_size)
 
     df_path = df_train_batch.copy()
     df_path['path'] = None
@@ -180,6 +179,10 @@ def calculate_metrics(threshold: float,
     precision = true_positive / (true_positive + false_positive)
     recall = true_positive / (true_positive + false_negative)
     f1_score = 2 * (precision * recall) / (precision + recall)
+
+    # plot the confusion matrix
+    confusion_matrix = pd.crosstab(df_path['label'], df_path['pred_label'])
+    print(confusion_matrix)
 
     return {'precision': precision, 'recall': recall, 'f1_score': f1_score}
 
