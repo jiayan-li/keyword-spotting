@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+from config import NUM_STATES
 
 class HMM():
     '''
@@ -7,7 +8,7 @@ class HMM():
         myHMM = HMM(init_a, init_b, init_pi) 
         path, highest_prob = myHMM.viterbi() 
     '''
-    def __init__(self, states: np.ndarray, init_probs: np.ndarray, trans: np.ndarray):
+    def __init__(self, init_probs: np.ndarray, trans: np.ndarray, num_states: int=NUM_STATES):
         '''
         Initialize an HMM.
         Parameters
@@ -22,7 +23,7 @@ class HMM():
         None.
         '''
         
-        self.states = states
+        self.states = np.array(range(num_states))
         self.init_probs = init_probs
         self.trans = trans
         self.emit = None
@@ -65,7 +66,7 @@ class HMM():
 
         '''
         num_states = len(self.states) 
-        num_obs = len(emit.shape[1]) 
+        num_obs = emit.shape[1]
         
         # Initialize probability and previous state matrices
         prob = np.zeros((num_obs, num_states))
@@ -79,7 +80,7 @@ class HMM():
         # Fill the matrices
         for t in range(1, num_obs):
             for s in range(num_states):
-                max_prob = -1
+                max_prob = -np.inf
                 max_state = -1
                 for r in range(num_states):
                     current_prob = prob[t-1][r] + self.trans[r][s] + emit[s][t]
