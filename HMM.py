@@ -1,6 +1,11 @@
 import numpy as np
 import pandas as pd
-from config import NUM_STATES
+from typing import List
+from config import NUM_STATES, PHONEME_LIST
+from prepare_data import batch_matrix_train
+from get_prob import main
+import matplotlib.pyplot as plt
+
 
 class HMM():
     '''
@@ -101,6 +106,82 @@ class HMM():
         return path, highest_prob, prob 
 
 
+def get_highest_prob_df(keyword: str = "never",
+                        batch_per_file: int = 20,
+                        batch_size: int = 60,
+                        log_space: bool = True,
+                        phoneme_list: List[str] = PHONEME_LIST,):
+    '''
+    Set the threshold for the HMM model for the window
+    to be classified as containing the keyword.
+    '''
+    
+    # get the emission matrix and true labels for the training data
+    df_train_batch = batch_matrix_train(keyword, batch_per_file, batch_size, log_space)
+
+    df_path = df_train_batch.copy()
+    df_path['path'] = None
+    df_path['highest_prob'] = None
+    df_path['prob_matrix'] = None
+
+    # get prior and transition probabilities (log)
+    prior_vector, transition_matrix = main(keyword=keyword, phoneme_list=phoneme_list, log_space=log_space)
+
+    # initialize the HMM model
+    hmm_model = HMM(prior_vector, transition_matrix)
+
+    # iterate over the training data
+    for i, row in df_train_batch.iterrows():
+        emission_matrix = row['emission_matrix']
+        hmm_model.emit = emission_matrix
+        path, highest_prob, prob_matrix = hmm_model.viterbi(emission_matrix)
+        # store in the dataframe
+        df_path.at[i, 'path'] = path
+        df_path.at[i, 'highest_prob'] = highest_prob
+        df_path.at[i, 'prob_matrix'] = prob_matrix
+
+    return df_path
+
+
+def _plot_highest_prob(df_path: pd.DataFrame):
+    '''
+    Plot the highest probability of the HMM model for each window.
+    '''
+
+    true_highest_prob = df_path[df_path['label'] == 1]['highest_prob']
+    false_highest_prob = df_path[df_path['label'] == 0]['highest_prob']
+
+    # Create a boxplot with both datasets
+    plt.boxplot([true_highest_prob, false_highest_prob], labels=['True Highest Prob', 'False Highest Prob'])
+
+    plt.title('Boxplot of True and False Highest Probabilities')
+    plt.xlabel('Category')
+    plt.ylabel('Values')
+    plt.show()
+
+
+def calculate_metrics(threshold: float,
+                       df_path: pd.DataFrame
+                       ) -> dict:
+    """
+    Calculate the training metrics for the HMM model, given a threshold.s
+    """
+
+    # label the samples based on the threshold
+    df_path['pred_label'] = df_path['highest_prob'] > threshold
+
+    # calculate the confusion matrix
+    true_positive = df_path[(df_path['label'] == 1) & (df_path['pred_label'] == 1)].shape[0]
+    false_positive = df_path[(df_path['label'] == 0) & (df_path['pred_label'] == 1)].shape[0]
+    true_negative = df_path[(df_path['label'] == 0) & (df_path['pred_label'] == 0)].shape[0]
+    false_negative = df_path[(df_path['label'] == 1) & (df_path['pred_label'] == 0)].shape[0]
+
+    # calculate the metrics
+    precision = true_positive / (true_positive + false_positive)
+    recall = true_positive / (true_positive + false_negative)
+    f1_score = 2 * (precision * recall) / (precision + recall)
+
+    return {'precision': precision, 'recall': recall, 'f1_score': f1_score}
 
 
 # Example usage
