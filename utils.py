@@ -213,9 +213,12 @@ def _get_prompt_id_list(df: pd.DataFrame) -> List[str]:
     return prompt_id
 
 
-def _shuffle_and_split(input_list: list, train_ratio: float = 0.5) -> Tuple[List, List]:
+def _shuffle_and_split(input_list: list, 
+                       train_ratio: float = 0.5,
+                       random_seed: int = 42) -> Tuple[List, List]:
+    
     # Shuffle the input list randomly
-    random.shuffle(input_list)
+    random.shuffle(input_list, random_seed=random_seed)
 
     # Calculate the split index
     split_index = int(len(input_list) * train_ratio)
@@ -317,7 +320,10 @@ def get_all_paths(
     return path_list
 
 def get_train_test_paths(
-    keyword: str = "never", train_ratio: float = 0.5, rerun: bool = False
+    keyword: str = "never", 
+    train_ratio: float = 0.5, 
+    rerun: bool = False,
+    random_seed: int = 42
 ) -> Dict[str, List[Tuple]]:
     """
     main function to get train test set from the files that contain the keyword
@@ -338,7 +344,7 @@ def get_train_test_paths(
 
     # Split the list of paths into training and testing sets
     train_root_paths, test_root_paths = _shuffle_and_split(
-        keyword_root_paths, train_ratio
+        keyword_root_paths, train_ratio, random_seed
     )
 
     dataset = {
