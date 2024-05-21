@@ -5,6 +5,7 @@ from config import NUM_STATES, PHONEME_LIST
 from prepare_data import batch_matrix_train
 from get_prob import main
 import matplotlib.pyplot as plt
+from typing import Optional
 
 
 class HMM():
@@ -106,7 +107,8 @@ class HMM():
         return path, highest_prob, prob 
 
 
-def get_highest_prob_df(dataset_type: str = "train",
+def get_highest_prob_df(keras_model: Optional[bool],
+                        dataset_type: str = "train",
                         keyword: str = "never",
                         batch_size: int = 60,
                         log_space: bool = True,
@@ -117,8 +119,11 @@ def get_highest_prob_df(dataset_type: str = "train",
     '''
     
     # get the emission matrix and true labels for the training data
-    df_batch = batch_matrix_train(keyword=keyword, batch_size=batch_size,
-                                        dataset_type=dataset_type, log_space=log_space)
+    df_batch = batch_matrix_train(keyword=keyword, 
+                                  keras_model=keras_model,
+                                  batch_size=batch_size,
+                                  dataset_type=dataset_type, 
+                                  log_space=log_space)
 
     df_path = df_batch.copy()
     df_path['path'] = None
@@ -144,7 +149,7 @@ def get_highest_prob_df(dataset_type: str = "train",
     return df_path
 
 
-def _plot_highest_prob(df_path: pd.DataFrame):
+def plot_highest_prob(df_path: pd.DataFrame):
     '''
     Plot the highest probability of the HMM model for each window.
     '''

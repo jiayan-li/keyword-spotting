@@ -8,7 +8,7 @@ from joblib import load
 from get_prob import get_label_df
 from mfcc_label import prepare_data
 from utils import load_data, get_train_test_paths
-from typing import Dict
+from typing import Dict, Optional
 
 def _identify_key_frames(
         word_path: str, 
@@ -111,6 +111,7 @@ def prepare_batch_matrix(word_path: str,
                          phoneme_path: str, 
                          wav_path: str,
                          num_random: int,
+                         keras_model: Optional[bool] = False,
                          batch_size: int = 60,
                          log_space: bool = True,
                          random_seed: int = 42,
@@ -132,8 +133,11 @@ def prepare_batch_matrix(word_path: str,
     if dataset_type == "train":
         df_label = prepare_data(phoneme_path, wav_path)
     else:
-        #TODO: change it into function
-        test_dict = load('processed_data/test_data_for_hmm.joblib')
+        if not keras_model:
+            #TODO: change it into function
+            test_dict = load('processed_data/test_data_for_hmm.joblib')
+        if keras_model:
+            test_dict = load('processed_data/test_data_for_hmm_keras.joblib')
         df_label = test_dict[(wav_path, phoneme_path, word_path)]
         df_label.columns = ['label']
     
@@ -165,6 +169,7 @@ def prepare_batch_matrix(word_path: str,
 
 def batch_matrix_train(
         keyword: str = "never",
+        keras_model: bool = False,
         num_random: int = 20,
         batch_size: int = 60,
         log_space: bool = True,
@@ -191,6 +196,7 @@ def batch_matrix_train(
                                             phoneme_path=phn_path, 
                                             wav_path=wav_path, 
                                             num_random=num_random, 
+                                            keras_model=keras_model,
                                             batch_size=batch_size, 
                                             log_space=log_space, 
                                             random_seed=random_seed,
