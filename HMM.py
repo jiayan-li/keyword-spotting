@@ -154,20 +154,41 @@ def get_highest_prob_df(keras_model: Optional[bool] = None,
     return df_path
 
 
-def plot_highest_prob(df_path: pd.DataFrame):
+def plot_highest_prob(df_train: pd.DataFrame,
+                      df_test: pd.DataFrame,
+                      annot: str = "True Emission Probabilities"):
     '''
     Plot the highest probability of the HMM model for each window.
     '''
 
-    true_highest_prob = df_path[df_path['label'] == 1]['highest_prob']
-    false_highest_prob = df_path[df_path['label'] == 0]['highest_prob']
+    # Separate highest probabilities by labels for the training dataset
+    train_true_highest_prob = df_train[df_train['label'] == 1]['highest_prob']
+    train_false_highest_prob = df_train[df_train['label'] == 0]['highest_prob']
+    
+    # Separate highest probabilities by labels for the testing dataset
+    test_true_highest_prob = df_test[df_test['label'] == 1]['highest_prob']
+    test_false_highest_prob = df_test[df_test['label'] == 0]['highest_prob']
+    
+    # Create subplots
+    fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(12, 6))
 
-    # Create a boxplot with both datasets
-    plt.boxplot([true_highest_prob, false_highest_prob], labels=['Label = 1', 'Label = 0'])
+    # Boxplot for the training dataset
+    axes[0].boxplot([train_true_highest_prob, train_false_highest_prob], labels=['Label = 1', 'Label = 0'])
+    axes[0].set_title('Training Set')
+    axes[0].set_xlabel('KWS Ground Truth Label')
+    axes[0].set_ylabel('Path Probability')
 
-    plt.title('Highest Path Probabilities of HMM for True and False Triggers')
-    plt.xlabel('Ground Truth Label')
-    plt.ylabel('Path Probability')
+    # Boxplot for the testing dataset
+    axes[1].boxplot([test_true_highest_prob, test_false_highest_prob], labels=['Label = 1', 'Label = 0'])
+    axes[1].set_title('Testing Set')
+    axes[1].set_xlabel('KWS Ground Truth Label')
+    axes[1].set_ylabel('Path Probability')
+
+    # set title
+    fig.suptitle(f'Highest Probability of HMM Model for Each Window with {annot}')
+
+    # Adjust layout
+    plt.tight_layout()
     plt.show()
 
 

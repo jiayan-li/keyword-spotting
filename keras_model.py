@@ -6,6 +6,7 @@ from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, Dense, BatchNormalization
 from tensorflow.keras.callbacks import EarlyStopping, TensorBoard
 from keras.optimizers import Adam
+from keras.models import load_model
 from kerastuner import HyperParameters
 from sklearn.model_selection import train_test_split
 import datetime
@@ -197,42 +198,9 @@ def final_model(X, y):
     return model
 
 
-def path_to_emission(file_path_phn: str, file_path_wav: str, model) -> np.ndarray:
-    '''
-    Given the path of a file, get the emission probabilities.
-    Args:
-        file_path: Path of the audio file as a string.
-    Returns:
-        emit: pd.dataframe
-            Emission probabilities for each frame in the audio file.
-    '''
-    df_test = prepare_data(file_path_phn,file_path_wav)
-    column_str_to_numpy(df_test, 'mfcc')
-    column_str_to_numpy(df_test, 'label')
-
-    X_test = np.array(df_test['mfcc'].tolist())
-    # y_test = np.array(df_test['label'].tolist())
-    X_test = reshape_lstm(X_test)
- 
-    emission_data = model.predict(X_test)
-
-    return emission_data
-
-
-def get_emission_all_paths(model, path_type: str = 'test'):
-    paths = load('processed_data/train_test_dataset_never.joblib')[path_type]
-    data = {}
-    for i in range(len(paths)):
-        file_path_wav, file_path_phn, file_path_word = paths[i]
-        emission_data = path_to_emission(file_path_phn, file_path_wav, model)
-        emission_df = pd.DataFrame({'label': list(emission_data)})
-        data[(file_path_wav, file_path_phn, file_path_word)] = emission_df
-
-    return data
-
-def main() -> None:
+def run_model(save: bool = True):
     """
-    Main function to train the model after finding the best parameters.
+    Run the model.
     """
 
     # Tune the model using training data
@@ -256,6 +224,18 @@ def main() -> None:
         verbose=1
     )
 
+    if save:
+        # Save the model
+        model.save('models/lstm_model.keras')
+
+    return model
+
+
+def evaluate_model(model, X_val, y_val):
+    """
+    Evaluate the model.
+    """
+
     # Evaluate the model on the validation set
     val_loss, val_accuracy = model.evaluate(X_val, y_val)
     print(f'Validation Loss: {val_loss}')
@@ -268,10 +248,80 @@ def main() -> None:
     print(f'Test Loss: {test_loss}')
     print(f'Test Accuracy: {test_accuracy}')
 
-    # Save the model
-    model.save('models/lstm_model.keras')
+    return val_loss, val_accuracy, test_loss, test_accuracy
+
+
+
+def path_to_emission(file_path_phn: str, file_path_wav: str, model) -> np.ndarray:
+    '''
+    Given the path of a file, get the emission probabilities.
+    Args:
+        file_path: Path of the audio file as a string.
+    Returns:
+        emit: pd.dataframe
+            Emission probabilities for each frame in the audio file.
+    '''
+    df_test = prepare_data(file_path_phn,file_path_wav)
+    column_str_to_numpy(df_test, 'mfcc')
+    column_str_to_numpy(df_test, 'label')
+
+    X_test = np.array(df_test['mfcc'].tolist())
+    # y_test = np.array(df_test['label'].tolist())
+    X_test = reshape_lstm(X_test)
+ 
+    emission_data = model.predict(X_test)
+
+    return emission_data
+
+
+def get_emission_all_paths(model, path_type: str = 'test'):
+    """
+    Get the emission probabilities for all paths.
+    """
+
+    paths = load('processed_data/train_test_dataset_never.joblib')[path_type]
+    data = {}
+    for i in range(len(paths)):
+        file_path_wav, file_path_phn, file_path_word = paths[i]
+        emission_data = path_to_emission(file_path_phn, file_path_wav, model)
+        emission_df = pd.DataFrame({'label': list(emission_data)})
+        data[(file_path_wav, file_path_phn, file_path_word)] = emission_df
+
+    return data
+
+
+def main(rerun: bool = False,
+         save: bool = False):
+    """
+    Main function to train the model after finding the best parameters.
+    """
+   
+    # Tune the model using training data
+    X, y = preprocess_data(train = True)
+
+    # Split the data into training and validation sets
+    X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, random_state=42)
+
+    if not rerun:
+        try:
+            # load keras model
+            model = load_model('models/lstm_model.keras')
+        except:
+            print('Model not found. Rerunning the model.')
+            model = run_model(save)
+            
+    else:
+        model = run_model(save)
+
+    # print the loss and accuracy
+    evaluate_model(model, X_val, y_val)
 
     # Get the emission probabilities for all paths
     data = get_emission_all_paths(model) 
     dump(data, "processed_data/test_data_for_hmm_keras.joblib")
 
+    # Get the emission probabilities for all paths
+    data = get_emission_all_paths(model, path_type='train') 
+    dump(data, "processed_data/train_data_for_hmm_keras.joblib")
+
+    return None
