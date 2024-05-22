@@ -165,3 +165,5 @@ timit/
 logs/
 
 models/
+
+plots/
