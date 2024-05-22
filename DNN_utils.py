@@ -34,6 +34,7 @@ def check_accuracy(loader, model):
     with torch.no_grad():
         for x, y in loader:
             y = flatten(y) # Flatten y to convert dimension from (NxCxH) to (N,-1)
+            y = y.long() 
             scores = model(x) 
             _, preds = scores.max(1) 
             true_class = y.argmax(dim=1) # True class is the one that has the highest probability in the label vector y.
@@ -56,6 +57,7 @@ def check_loss(loader, model):
     total_loss = 0
     with torch.no_grad():
         for x, y in loader:
+            y = y.long()
             scores = model(x)
             criterion = nn.CrossEntropyLoss() 
             total_loss = criterion(scores, y)
