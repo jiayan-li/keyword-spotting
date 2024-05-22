@@ -107,8 +107,9 @@ class HMM():
         return path, highest_prob, prob 
 
 
-def get_highest_prob_df(keras_model: Optional[bool],
+def get_highest_prob_df(keras_model: Optional[bool] = None,
                         dataset_type: str = "train",
+                        true_label: int = True,
                         keyword: str = "never",
                         batch_size: int = 60,
                         log_space: bool = True,
@@ -117,12 +118,16 @@ def get_highest_prob_df(keras_model: Optional[bool],
     Set the threshold for the HMM model for the window
     to be classified as containing the keyword.
     '''
-    
+
+    if not true_label and keras_model is None:
+        raise ValueError("Keras model must be provided if true_label is False.")
+
     # get the emission matrix and true labels for the training data
     df_batch = batch_matrix_train(keyword=keyword, 
                                   keras_model=keras_model,
                                   batch_size=batch_size,
                                   dataset_type=dataset_type, 
+                                  true_label=true_label,
                                   log_space=log_space)
 
     df_path = df_batch.copy()
@@ -158,11 +163,11 @@ def plot_highest_prob(df_path: pd.DataFrame):
     false_highest_prob = df_path[df_path['label'] == 0]['highest_prob']
 
     # Create a boxplot with both datasets
-    plt.boxplot([true_highest_prob, false_highest_prob], labels=['True Highest Prob', 'False Highest Prob'])
+    plt.boxplot([true_highest_prob, false_highest_prob], labels=['Label = 1', 'Label = 0'])
 
-    plt.title('Boxplot of True and False Highest Probabilities')
-    plt.xlabel('Category')
-    plt.ylabel('Values')
+    plt.title('Highest Path Probabilities of HMM for True and False Triggers')
+    plt.xlabel('Ground Truth Label')
+    plt.ylabel('Path Probability')
     plt.show()
 
 

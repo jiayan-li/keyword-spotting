@@ -115,6 +115,7 @@ def prepare_batch_matrix(word_path: str,
                          batch_size: int = 60,
                          log_space: bool = True,
                          random_seed: int = 42,
+                         true_label: bool = True,
                          dataset_type: str = "train"
                          ) -> np.ndarray:
     """
@@ -123,21 +124,28 @@ def prepare_batch_matrix(word_path: str,
         word_path: path to the word file
         phoneme_path: path to the phoneme file
         wav_path: path to the wav file
-        num_within_key_frames: number of frames within the keyword to be included
-            for the batch matrix
-        num_random: number of random frames to be included
-        batch_size: number of frames to be included in the batch matrix
-        log_space: whether to convert the emission matrix to log space
+        num_random: number of random frames to sample
+        keras_model: whether the model is keras or not
+        batch_size: size of the batch matrix
+        log_space: whether to use log space or not
+        random_seed: random seed for reproducibility
+        true_label: whether to use true label or not
+        dataset_type: train or test
     """
 
-    if dataset_type == "train":
+    if dataset_type not in ['train', 'test']:
+        raise ValueError("dataset_type must be either 'train' or 'test'")
+
+    # get the true label of phoneme states
+    if true_label:
         df_label = prepare_data(phoneme_path, wav_path)
+    # get the label from the dnn model
     else:
         if not keras_model:
             #TODO: change it into function
-            test_dict = load('processed_data/test_data_for_hmm.joblib')
+            test_dict = load(f'processed_data/{dataset_type}_data_for_hmm.joblib')
         if keras_model:
-            test_dict = load('processed_data/test_data_for_hmm_keras.joblib')
+            test_dict = load(f'processed_data/{dataset_type}_data_for_hmm_keras.joblib')
         df_label = test_dict[(wav_path, phoneme_path, word_path)]
         df_label.columns = ['label']
     
@@ -174,6 +182,7 @@ def batch_matrix_train(
         batch_size: int = 60,
         log_space: bool = True,
         random_seed: int = 42,
+        true_label: bool = True,
         dataset_type: str = "train"):
     """
     Main function to prepare batch matrix for all files in the dataset
@@ -200,6 +209,7 @@ def batch_matrix_train(
                                             batch_size=batch_size, 
                                             log_space=log_space, 
                                             random_seed=random_seed,
+                                            true_label=true_label,
                                             dataset_type=dataset_type)
         all_batch_matrix.extend(batch_matrix)
 
